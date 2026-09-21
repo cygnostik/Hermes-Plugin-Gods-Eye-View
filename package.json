@@ -1,0 +1,21 @@
+{
+  "name": "hermes-plugin-gods-eye-view",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/frontend/run-tests.cjs",
+    "test:frontend": "node tests/frontend/run-tests.cjs",
+    "check:frontend": "node --check desktop/plugin.js"
+  },
+  "os": ["win32"],
+  "engines": {
+    "node": ">=24.14.0 <25 || >=26 <27"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "5.101.2",
+    "jsdom": "29.1.1",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  }
+}

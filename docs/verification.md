@@ -5,7 +5,7 @@ The current development version supports Windows and macOS around the separately
 ## Plugin checks
 
 - Backend suite: offline regressions plus a small native Node/HTTP lifecycle smoke on Windows and macOS CI.
-- Existing frontend suite: 15 tests passed.
+- Frontend suite: 16 tests passed, including DOM-only false readiness and explicit guest recreation.
 - Frontend JavaScript syntax check passed.
 - Publication files reviewed for credentials, private machine paths and runtime data; the included screenshot is cropped to the application.
 - Earlier local Desktop acceptance confirmed embedded globe rendering, scene loading, Focus/restore and native Provider Settings.
@@ -14,13 +14,15 @@ The frontend suite uses mocked host/guest boundaries. Most backend tests use tem
 
 On macOS, the official GEV checkout has also been launched through the real plugin backend and opened in Hermes' Electron preview. Full sidebar activation is a separate check after the first-install backend restart.
 
+Upstream revision used for that Mac check: `f01b6a5d8462c182e03c94493fa24098c1ac3771` (unmodified official checkout, Node 26). Automated lifecycle checks use a local fixture rather than that network-connected application.
+
 ## Known bug: incomplete interface after provider-key save
 
 Saving a provider key can restart the upstream server and leave the embedded interface partially loaded or apparently unstyled.
 
-**Workaround:** switch to a chat session, then return to GEV.
+**Recovery:** Control room → Reload globe now recreates the embedded view. Switching to a chat session and back is the previously observed workaround. Either can reset transient scene state.
 
-Status: open; deferred to a later plugin investigation. A restart/loading race is suspected, not established. This does not block the first release, and no upstream app modifications are included.
+Status: the wrapper's separate false-readiness defect was reproduced and fixed; DOM readiness no longer cancels the application-load watchdog. The original provider-save rendering failure remains un-reproduced in this investigation and awaits the live Windows recheck. No upstream app modifications are included.
 
 ## Third-party scope
 

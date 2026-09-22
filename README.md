@@ -65,7 +65,7 @@ Open **God's Eye View** from the sidebar, then **Start engine**. Use **Control r
 
 ## Known limitations
 
-- **Key-save reload recovery is unresolved.** Saving a provider key restarts the upstream Vite server. One observed save left the embedded interface incomplete/apparently unstyled. Switching to a chat session and back to GEV recovered it. A restart/asset-loading race is suspected, not proven; the loading-label fix does not establish that this is fixed.
+- **Key-save reload recovery needs a live Windows recheck.** Saving a provider key restarts the upstream Vite server. One observed save left the embedded interface incomplete/apparently unstyled. Use **Control room → Reload globe** to recreate the embedded view, or switch to chat and back. Reload can reset transient view state. A false-ready label has been fixed, but the original rendering cause remains unproven.
 - Trusted external `_blank` anchor links are handed to the default browser. Arbitrary `window.open` buttons are not proven through that path. Use the standalone application when a native external button does not open.
 - Voice/microphone permissions, every provider's authentication, and live feed freshness are not certified by this wrapper's tests.
 - A remote Hermes backend is not supported: the guest's localhost endpoint must refer to the same machine as Desktop.

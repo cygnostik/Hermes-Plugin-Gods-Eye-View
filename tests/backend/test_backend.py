@@ -71,6 +71,24 @@ class BackendTests(FixtureCase):
         self.assertEqual(raised.exception.status_code, 409)
         command.assert_not_called()
 
+    def test_mac_stop_continues_when_a_verified_process_exits_first(self):
+        import psutil
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        for stage in ('lookup', 'terminate', 'kill'):
+            with self.subTest(stage=stage):
+                parent, child = Mock(), Mock()
+                parent.children.return_value = [child]
+                if stage != 'lookup':
+                    getattr(child, stage).side_effect = psutil.NoSuchProcess(998)
+                waits = [([], [child, parent]), ([child, parent], [])] if stage == 'kill' else [([child, parent], []), ([], [])]
+                with patch.object(gev, 'sys', SimpleNamespace(platform='darwin')), patch.object(gev, '_server_pid', return_value=999), patch.object(gev, '_port_open', side_effect=[True, False]), patch.object(psutil, 'Process', return_value=parent, side_effect=psutil.NoSuchProcess(999) if stage == 'lookup' else None), patch.object(psutil, 'wait_procs', side_effect=waits), patch.object(gev.time, 'sleep'):
+                    self.assertTrue(gev.stop_gev()['ok'])
+                if stage != 'lookup':
+                    parent.terminate.assert_called_once()
+                if stage == 'kill':
+                    parent.kill.assert_called_once()
+
     def test_process_discovery_requires_the_actual_listening_socket(self):
         import psutil
         from unittest.mock import Mock

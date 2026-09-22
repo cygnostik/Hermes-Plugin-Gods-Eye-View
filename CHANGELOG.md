@@ -6,6 +6,8 @@
 - Discover npm in macOS/Homebrew layouts and detach the Mac engine from the launching terminal.
 - Fix Windows CI's test-client import ordering without weakening its offline HTTP guard.
 - Run CI on Windows and macOS, including a small real Node/HTTP start/adopt/stop/restart test.
+- Require the guest readiness probe rather than declaring success on DOM readiness alone.
+- Recreate the embedded view on explicit Reload globe; ordinary health polls preserve it.
 
 ## 0.1.0
 

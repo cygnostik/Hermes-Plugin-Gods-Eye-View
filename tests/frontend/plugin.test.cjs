@@ -16,7 +16,7 @@ const jsxRuntime = require('react/jsx-runtime');
 const cleanups = [];
 afterEach(async () => { for (const fn of cleanups.splice(0)) await fn(); });
 function atom(value) { const listeners = new Set(); return { get: () => value, subscribe: fn => { listeners.add(fn); return () => listeners.delete(fn); }, set: next => { value = next; listeners.forEach(fn => fn()); } }; }
-async function boot(initial = { running: true, installed: true, url: 'http://localhost:4173', version: 'test' }) {
+async function boot(initial = { running: true, installed: true, url: 'http://localhost:4173', version: 'test' }, guestTimers = {}) {
   const filename = pluginPath;
   assert.ok(fs.existsSync(filename), 'public desktop/plugin.js must exist');
   const profile = atom('default'), connectionId = atom('local');
@@ -24,7 +24,7 @@ async function boot(initial = { running: true, installed: true, url: 'http://loc
   let status = initial, failure = null, reply = { ok: true }, externalResult = true;
   const ctx = { registerMany: entries => registrations.push(...entries), onDispose: () => {}, os: { openExternal: async url => { external.push(url); return externalResult; } }, rest: async (route, options) => { calls.push([route, options]); if (route === '/status') { if (failure) throw failure; return status; } return typeof reply === 'function' ? reply(route) : reply; } };
   const sdk = { ...query, host: { state: { profile, connectionId }, navigate: () => {}, notify: n => notices.push(n) }, useValue: a => React.useSyncExternalStore(a.subscribe, a.get, a.get), ROUTES_AREA: 'routes', SIDEBAR_NAV_AREA: 'sidebar', PALETTE_AREA: 'palette', STATUSBAR_AREAS: { right: 'status.right' } };
-  const context = vm.createContext({ console, URL, setTimeout, clearTimeout, window: dom.window, document: dom.window.document });
+  const context = vm.createContext({ console, URL, setTimeout, clearTimeout, ...guestTimers, window: dom.window, document: dom.window.document });
   const module = new vm.SourceTextModule(fs.readFileSync(filename, 'utf8'), { context, identifier: filename });
   await module.link(specifier => { const exports = { '@hermes/plugin-sdk': sdk, react: React, 'react/jsx-runtime': jsxRuntime }[specifier]; assert.ok(exports, 'unsupported import: ' + specifier); return new vm.SyntheticModule(Object.keys(exports), function () { for (const [key, value] of Object.entries(exports)) this.setExport(key, value); }, { context }); });
   await module.evaluate(); module.namespace.default.register(ctx);
@@ -44,6 +44,11 @@ async function boot(initial = { running: true, installed: true, url: 'http://loc
     reply: next => { reply = next; }, externalResult: value => { externalResult = value; },
     event: async (node, type, properties = {}) => { await React.act(async () => node.dispatchEvent(Object.assign(new dom.window.Event(type), properties))); await settle(); }
   };
+}
+async function readyGuest(ui, guest) {
+  guest.getURL = () => 'http://localhost:4173/';
+  guest.executeJavaScript = async code => vm.runInNewContext(code, { document: { readyState: 'complete', querySelector: selector => selector === 'canvas' ? {} : null } });
+  await ui.event(guest, 'dom-ready');
 }
 test('native workspace keeps a single flexible guest and scopes lightweight health to profile and connection', async () => {
   const ui = await boot();
@@ -100,19 +105,23 @@ test('invalid backend JSON is a connection error, never an offline engine', asyn
   assert.doesNotMatch(ui.container.textContent, /Engine offline/);
   assert.equal(ui.container.querySelector('webview'), null);
 });
-test('guest readiness, render failure and transient status errors preserve the existing guest', async () => {
+test('status errors preserve the guest; explicit reload recreates a failed guest', async () => {
   const ui = await boot(); const guest = ui.container.querySelector('webview');
   assert.match(ui.container.textContent, /Loading globe/);
-  await ui.event(guest, 'dom-ready'); assert.match(ui.container.textContent, /Globe ready/);
+  await readyGuest(ui, guest); assert.match(ui.container.textContent, /Globe ready/);
   await ui.failStatus();
   assert.match(ui.container.textContent, /Connection interrupted/);
   assert.equal(ui.container.querySelector('webview'), guest);
   await ui.event(guest, 'render-process-gone', { reason: 'crashed' });
   assert.match(ui.container.textContent, /Globe renderer stopped/);
-  let reloads = 0; guest.reload = () => reloads++;
-  await ui.click('Reload globe'); assert.equal(reloads, 1);
+  await ui.click('Reload globe');
+  const replacement = ui.container.querySelector('webview');
+  assert.notEqual(replacement, guest);
+  assert.match(ui.container.textContent, /Loading globe/);
+  await ui.event(guest, 'render-process-gone');
+  assert.doesNotMatch(ui.container.textContent, /Globe renderer stopped/, 'old guest listeners disposed');
   await ui.status({ running: true, installed: true, url: 'http://localhost:4173' });
-  assert.equal(ui.container.querySelector('webview'), guest);
+  assert.equal(ui.container.querySelector('webview'), replacement);
 });
 test('profile changes discard the previous guest rather than leak a working scene across accounts', async () => {
   const ui = await boot(); const guest = ui.container.querySelector('webview');
@@ -155,7 +164,7 @@ test('guest external handoff validates exact preload channel and web schemes and
 });
 test('Provider Settings uses the grounded native affordance and degrades honestly when unsupported', async () => {
   const ui = await boot(); const guest = ui.container.querySelector('webview');
-  await ui.event(guest, 'dom-ready'); await ui.click('Control room');
+  await readyGuest(ui, guest); await ui.click('Control room');
   await ui.click('Provider Settings'); assert.match(ui.container.textContent, /Open Provider Settings inside the globe/);
   let clicked = 0;
   guest.getURL = () => 'http://localhost:4173/';
@@ -200,9 +209,27 @@ test('registers a truthful glanceable engine status contribution', async () => {
 
 test('background fetch loading does not demote a ready globe', async () => {
   const ui = await boot(); const guest = ui.container.querySelector('webview');
-  await ui.event(guest, 'dom-ready');
+  await readyGuest(ui, guest);
   await ui.event(guest, 'did-start-loading');
   assert.match(ui.container.querySelector('header').textContent, /Globe ready/);
+});
+
+test('DOM readiness without a globe does not cancel the load watchdog', async () => {
+  const timers = new Map(); let next = 0;
+  const ui = await boot(undefined, {
+    setTimeout: (fn, delay) => { const id = ++next; timers.set(id, { fn, delay }); return id; },
+    clearTimeout: id => timers.delete(id)
+  });
+  const guest = ui.container.querySelector('webview');
+  guest.getURL = () => 'http://localhost:4173/';
+  guest.executeJavaScript = async code => vm.runInNewContext(code, { document: { readyState: 'complete', querySelector: () => null } });
+  await ui.event(guest, 'did-start-navigation', { isMainFrame: true });
+  await ui.event(guest, 'dom-ready');
+  assert.match(ui.container.querySelector('header').textContent, /Loading globe/);
+  const watchdog = [...timers.values()].find(timer => timer.delay === 30000);
+  assert.ok(watchdog, 'application readiness timeout remains armed');
+  await React.act(async () => watchdog.fn());
+  assert.match(ui.container.textContent, /taking longer than expected/);
 });
 
 test('missed dom-ready is recovered from actual guest document readiness', async () => {

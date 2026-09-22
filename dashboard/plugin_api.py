@@ -243,13 +243,21 @@ def stop_gev() -> dict:
                 parent = psutil.Process(pid)
                 processes = parent.children(recursive=True) + [parent]
                 for process in processes:
-                    process.terminate()
+                    try:
+                        process.terminate()
+                    except psutil.NoSuchProcess:
+                        pass
                 _, alive = psutil.wait_procs(processes, timeout=10)
                 for process in alive:
-                    process.kill()
+                    try:
+                        process.kill()
+                    except psutil.NoSuchProcess:
+                        pass
                 _, alive = psutil.wait_procs(alive, timeout=5)
                 if alive:
                     raise HTTPException(500, "GEV did not exit after the stop attempt.")
+            except psutil.NoSuchProcess:
+                pass  # The verified parent exited before process-tree inspection.
             except psutil.Error:
                 raise HTTPException(500, "GEV stop failed. Refresh status; no success was assumed.") from None
         stopped.append(pid)

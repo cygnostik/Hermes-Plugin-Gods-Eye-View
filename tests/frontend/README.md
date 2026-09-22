@@ -24,15 +24,15 @@ The shipped desktop plugin still imports only the Hermes SDK, React, and React J
 
 ## Coverage
 
-The suite has **15 passing tests**: all 13 original regressions are retained, plus unconfigured onboarding and failed-launch recovery tests. Existing backend-error, maintenance, and status-chip tests also assert the public setup/update guidance.
+The suite has **16 passing tests**. The public setup/update guidance, unconfigured onboarding, failed-launch recovery, and DOM-only readiness regression are covered.
 
 The tests exercise real React rendering, React DOM event handling, and the React Query cache. Hermes host/transport atoms and Electron guest APIs are controlled boundaries. Coverage includes:
 
 - One native `webview`, profile/connection-scoped status, polling without remounting, and no iframe replacement.
 - Invalid backend responses distinguished from an offline engine; setup guidance points to the README and `hermes gev configure`.
 - Missing checkout/runtime disables start/update actions until configuration is available; failed launch preserves the backend's reason.
-- Guest readiness, renderer-failure recovery, transient status errors, profile changes, and listener cleanup.
-- Background fetch loading does not demote a ready globe; missed `dom-ready` is recovered by the guest readiness probe.
+- Guest readiness, fresh-guest recovery on explicit reload, transient status errors, profile changes, and listener cleanup.
+- Background fetch loading does not demote a ready globe; missed `dom-ready` is recovered by the guest readiness probe. A DOM-ready event without a canvas leaves the load watchdog armed.
 - Focus, Control room, confirmed upstream-app updates, failed actions, and fresh confirmation after drawer re-entry.
 - Native Provider Settings shortcut/fallback, opt-in compatibility-bridge affordance, and validated external links.
 - Truthful status-chip labels and neutral theme tokens.
@@ -43,4 +43,4 @@ Maintenance controls update the **upstream GEV application**, not the pinned Her
 
 These are behavioral regressions, not Electron or visual end-to-end tests. They do not prove native compositing, rendered globe imagery, provider authentication, the real guest preload, or backend subprocess lifecycle. No live installation, Desktop restart, or credential changes are performed.
 
-The report that saving a key in native Provider Settings and restarting can leave an unstyled/broken view remains **unconfirmed and unfixed**. This suite does not cover that real key-save/restart path and must not be presented as a fix or verification of it.
+The original provider-save/restart rendering failure remains **un-reproduced in this investigation**. This suite verifies the wrapper's false-readiness fix and explicit view recreation, not that real key-save/restart path.

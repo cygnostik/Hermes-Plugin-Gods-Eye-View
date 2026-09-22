@@ -5,6 +5,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+# Import before FixtureCase.setUp patches httpx.Client, TestClient's base class.
+from fastapi.testclient import TestClient
+
 from support import FixtureCase, gev
 
 class BackendTests(FixtureCase):
@@ -75,7 +78,6 @@ class BackendTests(FixtureCase):
 
     def test_explicit_update_check_does_not_stop_or_install(self):
         from fastapi import FastAPI
-        from fastapi.testclient import TestClient
         app = FastAPI(); app.include_router(gev.router)
         seen = []
         def command(argv, **kwargs):

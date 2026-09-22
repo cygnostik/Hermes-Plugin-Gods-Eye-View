@@ -1,4 +1,4 @@
-"""GEV dashboard API: explicit Windows lifecycle and profile-safe onboarding.
+"""GEV dashboard API: explicit desktop lifecycle and profile-safe onboarding.
 
 Mounted by Hermes under /api/plugins/gods-eye-view. No import-time side effects.
 Updates affect ONLY the configured official upstream app, never this plugin.
@@ -74,9 +74,9 @@ def _exclusive(fn):
     return wrapped
 
 
-def _require_windows():
-    if sys.platform != "win32":
-        raise HTTPException(400, "GEV lifecycle management in this release supports Windows only.")
+def _require_supported_platform():
+    if sys.platform not in ("win32", "darwin"):
+        raise HTTPException(400, "GEV lifecycle management supports Windows and macOS.")
 
 
 def _url() -> str:
@@ -118,24 +118,24 @@ def _server_pid() -> int | None:
     import psutil
     c = _config()
     root, node = Path(c["root"]), Path(c["node"])
-    try:
-        for conn in psutil.net_connections(kind="tcp"):
-            if conn.status != psutil.CONN_LISTEN or not conn.laddr or conn.laddr.port != c["port"] or conn.laddr.ip not in ("127.0.0.1", "::1") or not conn.pid:
+    # macOS denies system-wide socket enumeration without root. Inspect only
+    # processes matching our executable, checkout and script before their sockets.
+    for proc in psutil.process_iter():
+        try:
+            if Path(proc.exe()).resolve() != node.resolve() or Path(proc.cwd()).resolve() != root.resolve():
                 continue
-            try:
-                proc = psutil.Process(conn.pid)
-                if Path(proc.exe()).resolve() != node.resolve() or Path(proc.cwd()).resolve() != root.resolve():
-                    continue
-                args = proc.cmdline()
-                script = Path(args[1]) if len(args) > 1 else Path("missing")
-                if not script.is_absolute():
-                    script = root / script
-                if script.resolve() == (root / "node_modules/vite/bin/vite.js").resolve():
+            args = proc.cmdline()
+            script = Path(args[1]) if len(args) > 1 else Path("missing")
+            if not script.is_absolute():
+                script = root / script
+            if script.resolve() != (root / "node_modules/vite/bin/vite.js").resolve():
+                continue
+            connections = getattr(proc, "net_connections", None) or proc.connections
+            for conn in connections(kind="tcp"):
+                if conn.status == psutil.CONN_LISTEN and conn.laddr and conn.laddr.port == c["port"] and conn.laddr.ip in ("127.0.0.1", "::1"):
                     return proc.pid
-            except (psutil.Error, OSError):
-                continue
-    except psutil.Error:
-        return None
+        except (psutil.Error, OSError):
+            continue
     return None
 
 
@@ -149,7 +149,7 @@ def status() -> dict:
         return {"configured": False, "configuration_error": exc.detail,
                 "installed": False, "running": False, "url": "http://localhost:4173/", "port": 4173,
                 "version": None, "commits_behind": None, "checked_at": None,
-                "pid": None, "node24_ok": False, "keys": None, "platform_supported": sys.platform == "win32"}
+                "pid": None, "node24_ok": False, "keys": None, "platform_supported": sys.platform in ("win32", "darwin")}
     token = _CONFIG.set(c)
     try:
         keys = _gev_key_status()
@@ -166,7 +166,7 @@ def status() -> dict:
                 "pid": proc.pid if proc is not None and proc.poll() is None else None,
                 # Historical frontend field name; Node 26 is supported too.
                 "node24_ok": Path(c["node"]).is_file(), "node_version": c["node_version"],
-                "keys": keys, "platform_supported": sys.platform == "win32"}
+                "keys": keys, "platform_supported": sys.platform in ("win32", "darwin")}
     finally:
         _CONFIG.reset(token)
 
@@ -185,7 +185,7 @@ def _log_event(event: str):
 @router.post("/start")
 @_exclusive
 def start_gev() -> dict:
-    _require_windows()
+    _require_supported_platform()
     c = _config()
     if _gev_key_status() is not None:
         return {"ok": True, "already_running": True, "url": _url()}
@@ -206,6 +206,7 @@ def start_gev() -> dict:
         proc = subprocess.Popen([str(node), str(root / "node_modules/vite/bin/vite.js"), "--host", "localhost", "--port", str(c["port"]), "--strictPort"],
                                 cwd=str(root), env=_node_env(), stdin=subprocess.DEVNULL,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                start_new_session=sys.platform != "win32",
                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except OSError:
         raise HTTPException(500, "Could not launch the configured Node runtime.") from None
@@ -225,16 +226,32 @@ def start_gev() -> dict:
 @router.post("/stop")
 @_exclusive
 def stop_gev() -> dict:
-    _require_windows()
+    _require_supported_platform()
     c = _config()
     pid = _server_pid()
     if _port_open(c["port"]) and pid is None:
         raise HTTPException(409, f"Port {c['port']} belongs to an unverified process. Nothing was stopped.")
     stopped = []
     if pid:
-        code, _ = _run(["taskkill", "/PID", str(pid), "/T", "/F"], cwd=Path(c["root"]), timeout=30)
-        if code:
-            raise HTTPException(500, "GEV stop command failed. Refresh status; no success was assumed.")
+        if sys.platform == "win32":
+            code, _ = _run(["taskkill", "/PID", str(pid), "/T", "/F"], cwd=Path(c["root"]), timeout=30)
+            if code:
+                raise HTTPException(500, "GEV stop command failed. Refresh status; no success was assumed.")
+        else:
+            import psutil
+            try:
+                parent = psutil.Process(pid)
+                processes = parent.children(recursive=True) + [parent]
+                for process in processes:
+                    process.terminate()
+                _, alive = psutil.wait_procs(processes, timeout=10)
+                for process in alive:
+                    process.kill()
+                _, alive = psutil.wait_procs(alive, timeout=5)
+                if alive:
+                    raise HTTPException(500, "GEV did not exit after the stop attempt.")
+            except psutil.Error:
+                raise HTTPException(500, "GEV stop failed. Refresh status; no success was assumed.") from None
         stopped.append(pid)
     state = _state()
     proc = state["proc"]
@@ -272,7 +289,7 @@ def _upstream_checkout():
 @_exclusive
 def check_updates() -> dict:
     from datetime import datetime, timezone
-    _require_windows()
+    _require_supported_platform()
     _upstream_checkout()
     _checked("git fetch", ["git", "fetch", "origin"], 120)
     count = _checked("git rev-list", ["git", "rev-list", "--count", "HEAD..origin/main"], 15)
@@ -288,7 +305,7 @@ def check_updates() -> dict:
 @_exclusive
 def update_gev() -> dict:
     """Explicit upstream-app update, NEVER an update of the catalog plugin."""
-    _require_windows()
+    _require_supported_platform()
     c = _config()
     _upstream_checkout()
     if not c["npm_cli"] or not Path(c["npm_cli"]).is_file():

@@ -73,8 +73,15 @@ class BackendTests(FixtureCase):
 
     def test_process_discovery_requires_the_actual_listening_socket(self):
         import psutil
-        with patch.object(gev, '_run', return_value=(0, '999')), patch.object(psutil, 'net_connections', return_value=[]):
+        from unittest.mock import Mock
+        candidate = Mock()
+        candidate.exe.return_value = str(self.node)
+        candidate.cwd.return_value = str(self.root)
+        candidate.cmdline.return_value = [str(self.node), str(self.root / 'node_modules/vite/bin/vite.js')]
+        candidate.net_connections.return_value = []
+        with patch.object(psutil, 'process_iter', return_value=[candidate]):
             self.assertIsNone(gev._server_pid())
+        candidate.net_connections.assert_called_once_with(kind='tcp')
 
     def test_explicit_update_check_does_not_stop_or_install(self):
         from fastapi import FastAPI
@@ -111,7 +118,8 @@ class BackendTests(FixtureCase):
         self.assertEqual(run.call_args.kwargs.get('env', {}).get('PATH', '').split(os.pathsep)[0], str(self.node.parent))
 
     def test_stop_failure_does_not_report_success(self):
-        with patch.object(gev, '_server_pid', return_value=999), patch.object(gev, '_port_open', return_value=True), patch.object(gev, '_run', return_value=(1, 'fixture failure')), patch.object(gev.time, 'sleep'):
+        import psutil
+        with patch.object(gev, '_server_pid', return_value=999), patch.object(gev, '_port_open', return_value=True), patch.object(gev, '_run', return_value=(1, 'fixture failure')), patch.object(psutil, 'Process', side_effect=psutil.AccessDenied(999)), patch.object(gev.time, 'sleep'):
             with self.assertRaises(gev.HTTPException):
                 gev.stop_gev()
 

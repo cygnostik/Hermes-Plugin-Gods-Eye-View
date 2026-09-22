@@ -48,7 +48,7 @@ def mutation_lock():
                 fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 PLUGIN_NAME = "gods-eye-view"
-SETUP_HINT = 'Run hermes gev configure --root "<official GEV checkout>" --node "<node.exe>" [--npm-cli "<npm-cli.js>"] [--port 4173].'
+SETUP_HINT = 'Run hermes gev configure --root "<official GEV checkout>" --node "<node executable>" [--npm-cli "<npm-cli.js>"] [--port 4173].'
 
 
 def data_path() -> Path:
@@ -128,7 +128,11 @@ def configure(root, node, npm_cli=None, port=4173) -> dict:
         raise ValueError("--node must point to an existing Node executable.")
     validate_checkout(root, node)
     version = node_version(node, root)
-    npm = Path(npm_cli).expanduser().resolve() if npm_cli else node.parent / "node_modules/npm/bin/npm-cli.js"
+    candidates = [node.parent / "node_modules/npm/bin/npm-cli.js",
+                  node.parent.parent / "lib/node_modules/npm/bin/npm-cli.js",
+                  (node.parent / "npm").resolve()]
+    npm = Path(npm_cli).expanduser().resolve() if npm_cli else next(
+        (path for path in candidates if path.is_file() and path.name == "npm-cli.js"), candidates[0])
     if npm_cli and not npm.is_file():
         raise ValueError("--npm-cli must point to an existing npm-cli.js.")
     value = {"root": str(root), "node": str(node), "npm_cli": str(npm) if npm.is_file() else None,

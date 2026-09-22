@@ -25,6 +25,14 @@ class SettingsTests(FixtureCase):
             with self.assertRaisesRegex(ValueError, 'engine'):
                 settings.node_version(self.node, self.root)
 
+    def test_configure_discovers_posix_npm_layout(self):
+        self.npm.unlink()
+        expected = self.node.parent.parent / 'lib/node_modules/npm/bin/npm-cli.js'
+        expected.parent.mkdir(parents=True); expected.touch()
+        with patch.object(settings.subprocess, 'run', side_effect=self.command):
+            result = settings.configure(self.root, self.node)
+        self.assertEqual(result['configuration']['npm_cli'], str(expected.resolve()))
+
     def test_configuration_does_not_accept_wrong_package_or_plugin_directory(self):
         (self.root / 'package.json').write_text(json.dumps({'name': 'unrelated-app'}))
         with patch.object(settings.subprocess, 'run', side_effect=self.command):

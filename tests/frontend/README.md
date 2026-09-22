@@ -1,6 +1,6 @@
 # Frontend regression tests
 
-From the repository root on Windows, with a supported Node runtime on `PATH`:
+From the repository root on Windows or macOS, with a supported Node runtime on `PATH`:
 
 ```sh
 npm ci --ignore-scripts
@@ -8,7 +8,7 @@ npm test
 npm run check:frontend
 ```
 
-The package uses the upstream GEV Node engine range: `>=24.14.0 <25 || >=26 <27`. The public plugin currently supports Windows only. The final suite was exercised on Windows with Node 24.21.0 and npm 11.19.0.
+The package uses the upstream GEV Node engine range: `>=24.14.0 <25 || >=26 <27`. CI runs on Windows and macOS with Node 26.
 
 `npm test` first syntax-checks `desktop/plugin.js`, then executes that exact file directly through Node's `vm.SourceTextModule`. There is no copied plugin, transpilation, build output, or dependency on a local Hermes source checkout. `run-tests.cjs` uses the same Node executable as its parent, propagates syntax/test failures, and limits each subprocess to 90 seconds. Node's experimental VM-modules warning is expected.
 

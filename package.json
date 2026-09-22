@@ -8,7 +8,7 @@
     "test:frontend": "node tests/frontend/run-tests.cjs",
     "check:frontend": "node --check desktop/plugin.js"
   },
-  "os": ["win32"],
+  "os": ["win32", "darwin"],
   "engines": {
     "node": ">=24.14.0 <25 || >=26 <27"
   },

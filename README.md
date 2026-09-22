@@ -22,7 +22,7 @@ No model-facing tools, autonomous monitoring, tracking, automatic startup, or bu
 ## Requirements
 
 - Hermes **Desktop** with the plugin SDK and companion dashboard API support, Hermes >=0.21.3.
-- **Windows** is the supported desktop platform for this first release. An embedded GPU-capable Electron view is required; the CLI or web dashboard alone is not a substitute.
+- **Windows or macOS.** An embedded GPU-capable Electron view is required; the CLI or web dashboard alone is not a substitute.
 - An existing installation of official GEV, with its dependencies installed outside this plugin directory.
 - A Node version allowed by that checkout. The tested upstream package requires `>=24.14.0 <25 || >=26 <27`; Node 24 is recommended.
 - Git and npm if you use the upstream application's update controls.
@@ -50,6 +50,14 @@ Then point the plugin at that checkout and Node executable, for example on Windo
 ```sh
 hermes gev configure --root "C:/Apps/gods-eye-view" --node "C:/Program Files/nodejs/node.exe"
 ```
+
+On macOS, with a supported Node runtime already on `PATH`:
+
+```sh
+hermes gev configure --root "$HOME/Projects/gods-eye-view" --node "$(command -v node)"
+```
+
+The configurator recognizes Windows and standard macOS/Homebrew npm layouts. If npm is installed separately, pass `--npm-cli` with its `npm-cli.js` path. GEV starts only on request; no login item or background service is installed.
 
 Use `hermes gev configure --help` for the npm CLI and port options. Paths above are examples, not directories created by the plugin. Nonsecret settings and runtime logs live in the active profile's `plugin-data/gods-eye-view/`, outside the installed package. Configuration does not start the server.
 

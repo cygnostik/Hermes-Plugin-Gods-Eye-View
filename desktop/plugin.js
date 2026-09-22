@@ -4,7 +4,7 @@ import { jsx, jsxs } from 'react/jsx-runtime'
 
 const ID = 'gods-eye-view'
 const ROUTE = '/gods-eye-view'
-const SETUP_GUIDANCE = 'See the plugin README for Windows setup. Run hermes gev configure --root <existing GEV checkout> --node <node executable> with your checkout and supported Node runtime paths, then refresh engine status.'
+const SETUP_GUIDANCE = 'See the plugin README for Windows/macOS setup. Run hermes gev configure --root <existing GEV checkout> --node <node executable> with your checkout and supported Node runtime paths, then refresh engine status.'
 
 function errorText(value) {
   const detail = value?.data?.detail || value?.detail || value?.error || value?.message

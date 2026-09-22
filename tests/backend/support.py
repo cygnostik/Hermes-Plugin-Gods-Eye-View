@@ -43,10 +43,10 @@ class FixtureCase(unittest.TestCase):
         self.enterContext(patch('subprocess.run', side_effect=AssertionError('unmocked subprocess')))
         self.enterContext(patch('subprocess.Popen', side_effect=AssertionError('unmocked launch')))
         self.enterContext(patch.object(gev, '_port_open', side_effect=AssertionError('unmocked port probe')))
-        self.enterContext(patch('psutil.net_connections', side_effect=AssertionError('unmocked process discovery')))
+        self.enterContext(patch('psutil.process_iter', side_effect=AssertionError('unmocked process discovery')))
         self.enterContext(patch('httpx.Client', side_effect=AssertionError('unmocked HTTP')))
-        if hasattr(gev, '_require_windows'):
-            self.enterContext(patch.object(gev, '_require_windows'))
+        if hasattr(gev, '_require_supported_platform'):
+            self.enterContext(patch.object(gev, '_require_supported_platform'))
         if hasattr(gev, 'settings'):
             self.enterContext(patch.object(gev.settings, 'node_version', return_value='24.14.0'))
             self.enterContext(patch.object(gev.settings, 'validate_checkout'))

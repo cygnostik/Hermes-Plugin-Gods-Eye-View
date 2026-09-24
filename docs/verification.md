@@ -1,6 +1,6 @@
 # Plugin scope and checks
 
-The current development version supports Windows and macOS around the separately installed official GEV application. It does not certify or modify every third-party app feature.
+The first release supports Windows and macOS around the separately installed official GEV application. It does not certify or modify every third-party app feature.
 
 ## Plugin checks
 
@@ -12,7 +12,7 @@ The current development version supports Windows and macOS around the separately
 
 The frontend suite uses mocked host/guest boundaries. Most backend tests use temporary offline fixtures; `test_lifecycle_live.py` starts a real Node fixture, checks its HTTP status, adopts its exact listening process, stops it and repeats. It does not download GEV or call providers. The GitHub Actions matrix runs both supported operating systems; an automated green result is not a live Windows Desktop UI check.
 
-On macOS, the official GEV checkout has also been launched through the real plugin backend and opened in Hermes' Electron preview. Full sidebar activation is a separate check after the first-install backend restart.
+On macOS, the official GEV checkout has also been launched through the real plugin backend and opened in Hermes' Electron preview. Sidebar activation and improved explicit reload were subsequently accepted live after the first-install backend restart and enabling the separate Desktop capability.
 
 Upstream revision used for that Mac check: `f01b6a5d8462c182e03c94493fa24098c1ac3771` (unmodified official checkout, Node 26). Automated lifecycle checks use a local fixture rather than that network-connected application.
 
@@ -27,3 +27,7 @@ Status: the wrapper's separate false-readiness defect was reproduced and fixed; 
 ## Third-party scope
 
 GEV owns its globe controls, providers, imagery, feeds and voice features. Exhaustive testing of its buttons and provider accounts is outside this wrapper release. Report reproducible integration problems through this repository's issues.
+
+- Voice/microphone permissions in the embedded view have not been verified.
+- Trusted external `_blank` anchor links are handed to the default browser. Arbitrary `window.open` buttons are not proven through that path; use the standalone application when a native external button does not open.
+- Remote Hermes backends and Linux lifecycle management are not supported by this wrapper release. GEV and Hermes Desktop must run on the same machine.

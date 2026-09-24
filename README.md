@@ -1,98 +1,102 @@
-# God's Eye View for Hermes Desktop
+![God’s Eye View — the globe in your workspace. Original satellite concept art for the community Hermes Desktop integration.](docs/media/launch-cover.png)
 
-A community integration that puts [Bilawal Sidhu's God's Eye View](https://github.com/bilawalsidhu/gods-eye-view) inside Hermes Desktop. The native globe remains the main interface; a compact flight deck and optional Control room handle the local engine.
+*Original satellite concept art, not a product screenshot.*
 
-**Unofficial integration.** Not maintained or endorsed by the GEV author, Cesium, Google, or Nous Research. Submitting this package to the Hermes catalog does not itself mean catalog approval.
+# God’s Eye View for Hermes Desktop
 
-![Actual GEV interface embedded in Hermes Desktop](docs/media/catalog.png)
+**A wider perspective. One sidebar away.**
 
-*Actual Windows Desktop capture, cropped to the plugin and letterboxed; imagery attribution retained. Photorealistic imagery availability depends on upstream/provider configuration. Decorative classification and recording labels belong to GEV's visual styling, not actual classification or recording status.*
+Explore [Bilawal Sidhu’s God’s Eye View](https://github.com/bilawalsidhu/gods-eye-view) without leaving Hermes Desktop. The native globe, scenes, layers and provider controls stay intact. A compact flight deck puts the local engine within reach.
 
-## What it provides
+[Install](#install) · [Official GEV](https://github.com/bilawalsidhu/gods-eye-view) · [Verification](docs/verification.md) · [Report an issue](https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View/issues)
 
-- One native GEV webview, preserving upstream scenes, layers, styles, and provider controls.
-- A slim flight deck with engine/render readiness and Focus/restore.
-- A tucked-away Control room for Start, Stop, Reload globe, and Provider Settings.
-- Explicit update checks and dirty-checkout-protected updates for your **separate GEV application checkout**.
-- An opt-in compatibility key bridge; native Provider Settings is the preferred setup path.
-- A `hermes gev configure` command for choosing an existing checkout and Node runtime.
+![The real GEV interface embedded in Hermes Desktop, showing an aerial city view and the plugin flight deck.](docs/media/catalog.png)
 
-No model-facing tools, autonomous monitoring, tracking, automatic startup, or bundled provider credentials. Process health is not proof that a feed is fresh or that credentials authenticate.
+*Actual Windows capture, cropped to the plugin; imagery attribution retained. Photorealistic imagery depends on your GEV providers. Classification and recording labels are part of GEV’s visual styling, not actual classification or recording status.*
 
-## Requirements
+## Your view. Your controls.
 
-- Hermes **Desktop** with the plugin SDK and companion dashboard API support, Hermes >=0.21.3.
-- **Windows or macOS.** An embedded GPU-capable Electron view is required; the CLI or web dashboard alone is not a substitute.
-- An existing installation of official GEV, with its dependencies installed outside this plugin directory.
-- A Node version allowed by that checkout. The tested upstream package requires `>=24.14.0 <25 || >=26 <27`; Node 24 is recommended.
-- Git and npm if you use the upstream application's update controls.
+| In the workspace | What you can do |
+| --- | --- |
+| **Native globe** | Explore GEV’s places, scenes, layers and visual styles in its own interface. |
+| **Flight deck** | See engine and globe-loading status. Enter Focus mode to give the view more room. |
+| **Control room** | Start or stop the engine, recreate the view with Reload globe, and open Provider Settings. |
+| **Engine maintenance** | Check for upstream GEV updates, then explicitly apply them. Local source changes block the update before the engine is stopped. |
 
-GEV providers are optional and carry their own terms, quotas, and billing. Hermes OAuth subscriptions are not provider API keys.
+GEV remains a separate installation. The plugin connects it to Hermes Desktop; it doesn’t replace or fork the engine.
+
+### Voice belongs to GEV
+
+GEV already has its own voice controls for actions such as navigation and orbiting, using an OpenAI API key and microphone permission. They remain part of the upstream application; voice and microphone permissions in the embedded view have not been verified. This release is a user-operated workspace, not a Hermes agent-control bridge.
 
 ## Install
 
-Before catalog approval, install directly from this repository:
+You’ll need **Hermes Desktop 0.21.3 or newer**, **Windows or macOS**, **Git**, and a separate [official GEV Git checkout](https://github.com/bilawalsidhu/gods-eye-view#readme) with its npm dependencies installed. Use **Node 24.x (24.14.0 or later), or 26.x**, subject to that checkout’s engine requirements.
+
+### 1. Add the plugin
+
+Install directly from this repository:
 
 ```sh
 hermes plugins install https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View --enable
 ```
 
-For a reproducible installation, add `--ref FULL_40_CHARACTER_COMMIT` using the exact commit displayed on the release. The placeholder is not a branch or tag. Once a catalog entry has been merged, `hermes plugins install gods-eye-view --enable` will resolve its reviewed pin.
+Catalog approval is pending. The direct-repository command works independently of catalog approval.
 
-The package contains both `desktop/plugin.js` and `dashboard/plugin_api.py`. After first installing/enabling it, restart Desktop at a safe point so its backend mounts the companion API. Do not restart an active agent turn. Renderer hot reload alone does not mount new Python routes.
+### 2. Connect your GEV checkout
 
-### Connect your GEV installation
-
-If you do not have GEV yet, follow the [official installation instructions](https://github.com/bilawalsidhu/gods-eye-view#readme) using a compatible Node version. Keep its checkout outside Hermes' replaceable plugin directory. This package does not download runtimes or install GEV automatically.
-
-Then point the plugin at that checkout and Node executable, for example on Windows:
-
-```sh
-hermes gev configure --root "C:/Apps/gods-eye-view" --node "C:/Program Files/nodejs/node.exe"
-```
-
-On macOS, with a supported Node runtime already on `PATH`:
+**macOS** — with a supported Node version on your PATH:
 
 ```sh
 hermes gev configure --root "$HOME/Projects/gods-eye-view" --node "$(command -v node)"
 ```
 
-The configurator recognizes Windows and standard macOS/Homebrew npm layouts. If npm is installed separately, pass `--npm-cli` with its `npm-cli.js` path. GEV starts only on request; no login item or background service is installed.
+**Windows** — replace the example paths with your installations:
 
-Use `hermes gev configure --help` for the npm CLI and port options. Paths above are examples, not directories created by the plugin. Nonsecret settings and runtime logs live in the active profile's `plugin-data/gods-eye-view/`, outside the installed package. Configuration does not start the server.
+```sh
+hermes gev configure --root "C:/Apps/gods-eye-view" --node "C:/Program Files/nodejs/node.exe"
+```
 
-Open **God's Eye View** from the sidebar, then **Start engine**. Use **Control room → Provider Settings** for optional keys. The native application owns its key store; keys are not part of this repository or the plugin's settings file.
+Keep GEV outside Hermes’ replaceable plugin directory. If npm is installed separately, supply its `npm-cli.js` path with `--npm-cli`. Run `hermes gev configure --help` for all options.
 
-## Known limitations
+### 3. Enable the Desktop view
 
-- **Key-save reload recovery needs a live Windows recheck.** Saving a provider key restarts the upstream Vite server. One observed save left the embedded interface incomplete/apparently unstyled. Use **Control room → Reload globe** to recreate the embedded view, or switch to chat and back. Reload can reset transient view state. A false-ready label has been fixed, but the original rendering cause remains unproven.
-- Trusted external `_blank` anchor links are handed to the default browser. Arbitrary `window.open` buttons are not proven through that path. Use the standalone application when a native external button does not open.
-- Voice/microphone permissions, every provider's authentication, and live feed freshness are not certified by this wrapper's tests.
-- A remote Hermes backend is not supported: the guest's localhost endpoint must refer to the same machine as Desktop.
-- Local GEV source changes stop an update before any server disruption. Resolve or back up them yourself; the plugin never discards them.
+Restart Hermes Desktop after your active runs finish. Open **Capabilities → Plugins → God’s Eye View** and turn on **Desktop**. The Desktop switch is separate from the agent-side enable switch.
 
-See [verification and scope](docs/verification.md) and [security/data boundaries](SECURITY.md).
+Select **God’s Eye View** in the sidebar, then **Start engine**. You’re connected when the flight deck says **Engine running · Globe ready** and the globe is visible.
 
-## Updates and removal
+Start with GEV’s keyless imagery and terrain. For optional providers, including photorealistic 3D, open **Control room → Provider Settings**. They have their own terms, quotas and billing. Nothing starts automatically at login. Windows provider-save rendering recovery still awaits a live recheck; **Reload globe** recreates the embedded view.
 
-The plugin never downloads replacements for its own files. Catalog plugin updates use reviewed commit pins and Hermes' plugin installer. Direct pinned installs require explicitly choosing a new reviewed commit.
+## Everyday operation
 
-The Control room's update action applies only to the separately configured official GEV checkout. It performs Git fast-forward and locked npm dependency installation after a clean-checkout check. It can stop/restart that app and may need network access. It never updates Hermes or this plugin.
+- **Focus** hides the flight deck. **Show flight deck** restores it.
+- **Reload globe** creates a fresh embedded view. Use it if GEV looks incomplete after a restart or provider change; it can reset the current view.
+- **Update engine** updates your separate GEV checkout, not Hermes or this plugin. Updates are explicit, never part of status polling.
+- Stop the engine before disabling or uninstalling the plugin if you want GEV to stop running too. Removing the plugin does not remove GEV, its keys, or the plugin’s saved configuration.
 
-Plugin replacement leaves its durable settings/logs and the external GEV checkout/key store intact. Disabling/uninstalling does not delete that application or its keys. Stop the engine explicitly first if it should no longer run.
+## Providers, data and support
+
+Provider keys normally stay in GEV’s native configuration. An optional compatibility bridge can copy supported Hermes environment keys when you explicitly allow it; Hermes OAuth subscriptions are not interchangeable with provider API keys.
+
+The engine runs on the same machine as Hermes Desktop. Imagery and feeds may use external services. This wrapper does not certify their freshness or provider authentication. See [security and data boundaries](SECURITY.md).
+
+**Current verification:** Windows and macOS [automated checks pass](https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View/actions/runs/35784735033); the Mac workspace and improved reload have been checked live. See [verification and known limitations](docs/verification.md) for the remaining Windows provider-save check, microphone, external-link and platform scope.
 
 ## Development
 
 ```sh
 npm ci
 npm test
+python -m pip install -r requirements-dev.txt
 python -m unittest discover -s tests/backend -p "test_*.py" -v
 hermes plugins validate .
 hermes plugins doctor . --ci
 ```
 
-Frontend tests use real React/React DOM/React Query/JSDOM with mocked guest and transport APIs. They do not substitute for Electron GPU testing. Python test dependencies are declared in `requirements-dev.txt`.
+[Changelog](CHANGELOG.md) · [Roadmap](docs/ROADMAP.md) · [Issues](https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View/issues)
 
-## Attribution
+## Built on good work
 
-The wrapper code is MIT-licensed. GEV remains a separate MIT-licensed project by Bilawal Sidhu; its source, datasets, provider terms, and imagery rights are not transferred by this package's license. Native imagery attribution is retained. Hermes Agent is by Nous Research. Maintainer: [cygnostik](https://github.com/cygnostik), ProDyn.ai.
+**God’s Eye View:** [Bilawal Sidhu](https://github.com/bilawalsidhu/gods-eye-view). **Hermes Agent:** [Nous Research](https://github.com/NousResearch/hermes-agent). **Community integration:** [cygnostik](https://github.com/cygnostik) / [ProDyn](https://prodyn.ai).
+
+This is an independent community integration, not an official GEV or Nous Research release. The wrapper is [MIT-licensed](LICENSE); upstream software, datasets and imagery retain their own licenses and terms.

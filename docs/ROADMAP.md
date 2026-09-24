@@ -1,6 +1,6 @@
 # GEV: Windows baseline, Mac path, agent control
 
-**Current priority:** get the shared Windows/macOS wrapper working live on Mac, then update the repository and catalog. The Windows installation will be checked later. Agent control remains a separate future decision. Keep official GEV as the engine.
+**Launch status:** the shared Windows/macOS wrapper passes CI, the Mac workspace and improved reload have been accepted live, and the first-launch repository presentation is approved. Catalog admission is pending. The Windows installation will be checked later. Agent control remains a separate future decision. Keep official GEV as the engine.
 
 ## 1. Windows “Basic Version”
 
@@ -21,7 +21,7 @@ Define Basic as **the full native GEV interface inside Hermes**, with reliable S
 | New Mac shell, reusing GEV components | High | More custom UX; worthwhile only if we want a separate product rather than a Hermes plugin. |
 | Rewrite the globe/application | Very high | Maximum control, but rebuilds feeds, camera behavior, scenes and voice. No present benefit justifies it. |
 
-**Mac milestone:** lifecycle and Node/npm adaptation are implemented; the official globe has rendered in Hermes' Electron preview. Finish sidebar acceptance after the first-install backend restart. Microphone/provider checks remain separate. Upstream has reusable application components, but its standalone shell still assumes one application per page; reuse is not a drop-in native UI toolkit.[2]
+**Mac milestone:** lifecycle and Node/npm adaptation are implemented; the official globe has rendered in Hermes' Electron preview. Sidebar activation and improved explicit reload have now been accepted live. Microphone/provider checks remain separate. Upstream has reusable application components, but its standalone shell still assumes one application per page; reuse is not a drop-in native UI toolkit.[2]
 
 ## 3. What agent control actually adds
 

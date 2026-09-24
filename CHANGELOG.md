@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased — Windows + macOS
+## 0.1.0 — First launch, Windows + macOS
+
+First public release of the community GEV integration: native embedded interface, Focus mode, Control room, lifecycle controls, native provider setup, explicit separate-app updates, and consumer configuration outside the install tree.
 
 - Support macOS engine start, exact-process adoption, stop and update; retain Windows process-tree shutdown.
 - Discover npm in macOS/Homebrew layouts and detach the Mac engine from the launching terminal.
@@ -9,8 +11,7 @@
 - Require the guest readiness probe rather than declaring success on DOM readiness alone.
 - Recreate the embedded view on explicit Reload globe; ordinary health polls preserve it.
 
-## 0.1.0
+- Publish the orbital-recon repository cover, real interface proof, and Windows/macOS setup including the separate Desktop capability switch.
+- Confirm Mac sidebar acceptance and improved explicit reload live.
 
-First public packaging of the community GEV integration: native embedded interface, Focus mode, Control room, lifecycle controls, native provider setup, explicit separate-app updates, and consumer configuration outside the install tree. Includes loading-readiness recovery and neutral Hermes surface styling.
-
-Known issue: saving a provider key may leave the guest partially initialized after upstream restart; switching away and back is the observed recovery. Not claimed fixed.
+Known issue: saving a provider key may leave the guest partially initialized after upstream restart. Reload globe recreates the embedded view; the original Windows provider-save scenario still needs a live recheck. Not claimed fixed.

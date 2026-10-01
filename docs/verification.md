@@ -2,32 +2,28 @@
 
 The first release supports Windows and macOS around the separately installed official GEV application. It does not certify or modify every third-party app feature.
 
-## Plugin checks
+## v0.1.1 SDK migration checks
 
-- Backend suite: offline regressions plus a small native Node/HTTP lifecycle smoke on Windows and macOS CI.
-- Frontend suite: 16 tests passed, including DOM-only false readiness and explicit guest recreation.
-- Frontend JavaScript syntax check passed.
-- Publication files reviewed for credentials, private machine paths and runtime data; the included screenshot is cropped to the application.
-- Earlier local Desktop acceptance confirmed embedded globe rendering, scene loading, Focus/restore and native Provider Settings.
+Local checks on macOS: 14 frontend tests and 32 backend tests pass (including the native Node/HTTP lifecycle fixture); JavaScript syntax and diff checks pass. Plugin admission validation reports all checks green, scanner `safe`, and no warnings; Plugin Doctor reports no findings. The current upstream Desktop surface lint also passes. Five migration regressions fail against the original v0.1.0 bundle.
 
-The frontend suite uses mocked host/guest boundaries. Most backend tests use temporary offline fixtures; `test_lifecycle_live.py` starts a real Node fixture, checks its HTTP status, adopts its exact listening process, stops it and repeats. It does not download GEV or call providers. The GitHub Actions matrix runs both supported operating systems; an automated green result is not a live Windows Desktop UI check.
+The public entrypoint now imports `SandboxedFrame` from `@hermes/plugin-sdk` and uses its default sandbox. Engine status comes solely from backend `/status`; the wrapper does not claim document or canvas readiness. Provider Settings shows directions to GEV’s own settings chip. Reload globe explicitly recreates the frame; polling and Focus retain it. The backend is unchanged.
 
-On macOS, the official GEV checkout has also been launched through the real plugin backend and opened in Hermes' Electron preview. Sidebar activation and improved explicit reload were subsequently accepted live after the first-install backend restart and enabling the separate Desktop capability.
+The frontend suite executes the public entrypoint with a mocked SDK boundary. It covers the frame props, polling/reload/profile lifecycle, truthful status, no private IPC handoff, provider guidance without scripting, update confirmation, key-copy opt-in, and error handling. The mock does not establish browser sandbox enforcement or live GEV compatibility.
 
-Upstream revision used for that Mac check: `f01b6a5d8462c182e03c94493fa24098c1ac3771` (unmodified official checkout, Node 26). Automated lifecycle checks use a local fixture rather than that network-connected application.
+Backend regressions include offline fixtures and a small native Node/HTTP lifecycle test that starts, adopts, stops and restarts its own fixture. It does not download GEV or call providers. Platform CI is distinct from live Desktop acceptance.
 
-## Known bug: incomplete interface after provider-key save
+**Live acceptance remains pending for v0.1.1:** opaque-origin framing can affect GEV provider requests, storage and configuration behavior. No same-origin or popup privileges are added to compensate; use Open in browser when an upstream feature requires the standalone app.
 
-Saving a provider key can restart the upstream server and leave the embedded interface partially loaded or apparently unstyled.
+## Historical v0.1.0 acceptance
 
-**Recovery:** Control room → Reload globe now recreates the embedded view. Switching to a chat session and back is the previously observed workaround. Either can reset transient scene state.
+Windows foreground acceptance completed September 25 on the exact v0.1.0 pin: automatic provider-save recovery, Reload globe, visible camera interaction, Start/Stop, Focus/restore and restart persistence passed. Results and sanitized screenshots are in [issue #1](https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View/issues/1). The original defect was not reproduced. Earlier macOS acceptance used the unmodified official GEV checkout `f01b6a5d8462c182e03c94493fa24098c1ac3771` with Node 26.
 
-Status: the wrapper's separate false-readiness defect was reproduced and fixed; DOM readiness no longer cancels the application-load watchdog. The original provider-save rendering failure remains un-reproduced in this investigation and awaits the live Windows recheck. No upstream app modifications are included.
+These historical results concern the previous Electron guest, not the v0.1.1 SDK frame.
 
 ## Third-party scope
 
 GEV owns its globe controls, providers, imagery, feeds and voice features. Exhaustive testing of its buttons and provider accounts is outside this wrapper release. Report reproducible integration problems through this repository's issues.
 
 - Voice/microphone permissions in the embedded view have not been verified.
-- Trusted external `_blank` anchor links are handed to the default browser. Arbitrary `window.open` buttons are not proven through that path; use the standalone application when a native external button does not open.
+- Guest popup/navigation restrictions follow the SDK default sandbox. Use the explicit Open in browser control for standalone GEV when needed.
 - Remote Hermes backends and Linux lifecycle management are not supported by this wrapper release. GEV and Hermes Desktop must run on the same machine.

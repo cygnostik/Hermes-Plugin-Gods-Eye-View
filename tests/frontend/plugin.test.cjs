@@ -16,15 +16,20 @@ const jsxRuntime = require('react/jsx-runtime');
 const cleanups = [];
 afterEach(async () => { for (const fn of cleanups.splice(0)) await fn(); });
 function atom(value) { const listeners = new Set(); return { get: () => value, subscribe: fn => { listeners.add(fn); return () => listeners.delete(fn); }, set: next => { value = next; listeners.forEach(fn => fn()); } }; }
-async function boot(initial = { running: true, installed: true, url: 'http://localhost:4173', version: 'test' }, guestTimers = {}) {
+async function boot(initial = { running: true, installed: true, url: 'http://localhost:4173', version: 'test' }) {
   const filename = pluginPath;
   assert.ok(fs.existsSync(filename), 'public desktop/plugin.js must exist');
   const profile = atom('default'), connectionId = atom('local');
-  const calls = [], notices = [], external = [], registrations = [];
+  const calls = [], notices = [], external = [], registrations = [], frames = [];
   let status = initial, failure = null, reply = { ok: true }, externalResult = true;
   const ctx = { registerMany: entries => registrations.push(...entries), onDispose: () => {}, os: { openExternal: async url => { external.push(url); return externalResult; } }, rest: async (route, options) => { calls.push([route, options]); if (route === '/status') { if (failure) throw failure; return status; } return typeof reply === 'function' ? reply(route) : reply; } };
-  const sdk = { ...query, host: { state: { profile, connectionId }, navigate: () => {}, notify: n => notices.push(n) }, useValue: a => React.useSyncExternalStore(a.subscribe, a.get, a.get), ROUTES_AREA: 'routes', SIDEBAR_NAV_AREA: 'sidebar', PALETTE_AREA: 'palette', STATUSBAR_AREAS: { right: 'status.right' } };
-  const context = vm.createContext({ console, URL, setTimeout, clearTimeout, ...guestTimers, window: dom.window, document: dom.window.document });
+  // Model only the SDK boundary; the upstream primitive owns its sandbox enforcement.
+  const SandboxedFrame = props => {
+    frames.push(props);
+    return React.createElement('iframe', { src: props.src, title: props.title, style: props.style, sandbox: 'allow-scripts', referrerPolicy: 'no-referrer', loading: 'lazy' });
+  };
+  const sdk = { SandboxedFrame, ...query, host: { state: { profile, connectionId }, navigate: () => {}, notify: n => notices.push(n) }, useValue: a => React.useSyncExternalStore(a.subscribe, a.get, a.get), ROUTES_AREA: 'routes', SIDEBAR_NAV_AREA: 'sidebar', PALETTE_AREA: 'palette', STATUSBAR_AREAS: { right: 'status.right' } };
+  const context = vm.createContext({ console, URL, setTimeout, clearTimeout, window: dom.window, document: dom.window.document });
   const module = new vm.SourceTextModule(fs.readFileSync(filename, 'utf8'), { context, identifier: filename });
   await module.link(specifier => { const exports = { '@hermes/plugin-sdk': sdk, react: React, 'react/jsx-runtime': jsxRuntime }[specifier]; assert.ok(exports, 'unsupported import: ' + specifier); return new vm.SyntheticModule(Object.keys(exports), function () { for (const [key, value] of Object.entries(exports)) this.setExport(key, value); }, { context }); });
   await module.evaluate(); module.namespace.default.register(ctx);
@@ -37,7 +42,7 @@ async function boot(initial = { running: true, installed: true, url: 'http://loc
   await settle();
   cleanups.push(async () => { await React.act(async () => root.unmount()); client.clear(); container.remove(); });
   const button = label => Array.from(container.querySelectorAll('button')).find(el => el.textContent.trim() === label || el.getAttribute('aria-label') === label);
-  return { container, calls, notices, external, registrations, client, profile, connectionId, button, settle, namespace: module.namespace,
+  return { container, frames, calls, notices, external, registrations, client, profile, connectionId, button, settle, namespace: module.namespace,
     click: async label => { const el = button(label); assert.ok(el, 'button exists: ' + label); assert.equal(el.disabled, false, label + ' enabled'); await React.act(async () => el.click()); await settle(); },
     status: async next => { status = next; failure = null; await React.act(async () => { await client.invalidateQueries(); }); await settle(); },
     failStatus: async () => { failure = new Error('connection lost'); await React.act(async () => { await client.invalidateQueries(); }); await settle(); },
@@ -45,16 +50,16 @@ async function boot(initial = { running: true, installed: true, url: 'http://loc
     event: async (node, type, properties = {}) => { await React.act(async () => node.dispatchEvent(Object.assign(new dom.window.Event(type), properties))); await settle(); }
   };
 }
-async function readyGuest(ui, guest) {
-  guest.getURL = () => 'http://localhost:4173/';
-  guest.executeJavaScript = async code => vm.runInNewContext(code, { document: { readyState: 'complete', querySelector: selector => selector === 'canvas' ? {} : null } });
-  await ui.event(guest, 'dom-ready');
-}
-test('native workspace keeps a single flexible guest and scopes lightweight health to profile and connection', async () => {
+test('SDK workspace keeps a single flexible frame and scopes lightweight health to profile and connection', async () => {
   const ui = await boot();
-  const guest = ui.container.querySelector('webview');
-  assert.ok(guest); assert.equal(guest.getAttribute('partition'), 'persist:hermes-preview');
-  assert.equal(guest.style.display, 'flex'); assert.equal(ui.container.querySelector('iframe'), null);
+  const guest = ui.container.querySelector('iframe');
+  assert.ok(guest); assert.equal(ui.container.querySelectorAll('iframe').length, 1);
+  assert.equal(ui.container.querySelector('webview'), null);
+  assert.equal(guest.title, "God's Eye View");
+  assert.equal(guest.src, 'http://localhost:4173/');
+  assert.equal(guest.style.display, 'flex');
+  assert.deepEqual(Object.keys(ui.frames.at(-1)).sort(), ['src', 'style', 'title']);
+  assert.equal(guest.getAttribute('sandbox'), 'allow-scripts');
   assert.match(ui.container.textContent, /Engine running/);
   assert.equal(ui.container.querySelector('header').style.height, '40px');
   assert.equal(ui.container.querySelector('[role="dialog"]'), null);
@@ -62,14 +67,14 @@ test('native workspace keeps a single flexible guest and scopes lightweight heal
   assert.deepEqual(Array.from(cached.queryKey), ['gods-eye-view', 'status', 'default', 'local']);
   assert.ok(cached.options.refetchInterval >= 15000 && cached.options.refetchInterval <= 30000);
   await ui.status({ running: true, installed: true, url: 'http://localhost:4173', version: 'next' });
-  assert.equal(ui.container.querySelector('webview'), guest, 'health polling must not remount the guest');
+  assert.equal(ui.container.querySelector('iframe'), guest, 'health polling must not remount the guest');
 });
 test('unconfigured installs explain setup without offering a broken start', async () => {
   const ui = await boot({ running: false, installed: false, node24_ok: false });
   assert.match(ui.container.textContent, /Setup required/);
   assert.match(ui.container.textContent, /README/);
   assert.match(ui.container.textContent, /hermes gev configure --root <existing GEV checkout> --node <node executable>/);
-  assert.equal(ui.container.querySelector('webview'), null);
+  assert.equal(ui.container.querySelector('iframe'), null);
   assert.equal(ui.button('Start engine').disabled, true);
   await ui.click('Control room');
   for (const button of ui.container.querySelectorAll('button')) {
@@ -93,7 +98,7 @@ test('failed engine launch retains the backend reason and explains configuration
   assert.match(alert.textContent, /README/);
   assert.match(alert.textContent, /hermes gev configure/);
   assert.equal(ui.calls.filter(([route]) => route === '/start').length, 1);
-  assert.equal(ui.container.querySelector('webview'), null);
+  assert.equal(ui.container.querySelector('iframe'), null);
 });
 
 test('invalid backend JSON is a connection error, never an offline engine', async () => {
@@ -103,30 +108,30 @@ test('invalid backend JSON is a connection error, never an offline engine', asyn
   assert.match(ui.container.querySelector('[role="alert"]').textContent, /README/);
   assert.match(ui.container.querySelector('[role="alert"]').textContent, /hermes gev configure/);
   assert.doesNotMatch(ui.container.textContent, /Engine offline/);
-  assert.equal(ui.container.querySelector('webview'), null);
+  assert.equal(ui.container.querySelector('iframe'), null);
 });
-test('status errors preserve the guest; explicit reload recreates a failed guest', async () => {
-  const ui = await boot(); const guest = ui.container.querySelector('webview');
-  assert.match(ui.container.textContent, /Loading globe/);
-  await readyGuest(ui, guest); assert.match(ui.container.textContent, /Globe ready/);
+test('backend running status is truthful; errors retain the frame and explicit reload recreates it', async () => {
+  const ui = await boot(); const guest = ui.container.querySelector('iframe');
+  assert.match(ui.container.querySelector('header').textContent, /Engine running/);
+  assert.doesNotMatch(ui.container.textContent, /Globe ready|Loading globe/);
+  await ui.event(guest, 'load');
+  assert.doesNotMatch(ui.container.textContent, /Globe ready/);
   await ui.failStatus();
   assert.match(ui.container.textContent, /Connection interrupted/);
-  assert.equal(ui.container.querySelector('webview'), guest);
-  await ui.event(guest, 'render-process-gone', { reason: 'crashed' });
-  assert.match(ui.container.textContent, /Globe renderer stopped/);
+  assert.equal(ui.container.querySelector('iframe'), guest);
+  await ui.click('Control room');
   await ui.click('Reload globe');
-  const replacement = ui.container.querySelector('webview');
+  const replacement = ui.container.querySelector('iframe');
   assert.notEqual(replacement, guest);
-  assert.match(ui.container.textContent, /Loading globe/);
-  await ui.event(guest, 'render-process-gone');
-  assert.doesNotMatch(ui.container.textContent, /Globe renderer stopped/, 'old guest listeners disposed');
   await ui.status({ running: true, installed: true, url: 'http://localhost:4173' });
-  assert.equal(ui.container.querySelector('webview'), replacement);
+  assert.equal(ui.container.querySelector('iframe'), replacement);
+  await ui.status({ running: false, installed: true });
+  assert.equal(ui.container.querySelector('iframe'), null);
 });
 test('profile changes discard the previous guest rather than leak a working scene across accounts', async () => {
-  const ui = await boot(); const guest = ui.container.querySelector('webview');
+  const ui = await boot(); const guest = ui.container.querySelector('iframe');
   await React.act(async () => ui.profile.set('different')); await ui.settle();
-  assert.notEqual(ui.container.querySelector('webview'), guest);
+  assert.notEqual(ui.container.querySelector('iframe'), guest);
   assert.ok(ui.client.getQueryCache().getAll().some(q => q.queryKey[2] === 'different'));
 });
 test('Control room gates updates behind confirmation and reports failed actions without false success', async () => {
@@ -144,34 +149,43 @@ test('Control room gates updates behind confirmation and reports failed actions 
   await ui.click('Stop engine'); assert.match(ui.container.textContent, /Headless backend/);
   assert.equal(ui.calls.filter(([p]) => p === '/keys/hermes').length, 0);
   await ui.click('Close Control room');
-  const guest = ui.container.querySelector('webview');
+  const guest = ui.container.querySelector('iframe');
   await ui.click('Focus'); assert.equal(ui.container.querySelector('header'), null);
   await ui.click('Show flight deck'); assert.ok(ui.container.querySelector('header'));
-  assert.equal(ui.container.querySelector('webview'), guest);
+  assert.equal(ui.container.querySelector('iframe'), guest);
 });
-test('guest external handoff validates exact preload channel and web schemes and disposes on unmount', async () => {
-  const ui = await boot(); const guest = ui.container.querySelector('webview');
-  await ui.event(guest, 'ipc-message', { channel: 'other', args: ['https://example.com/'] });
-  await ui.event(guest, 'ipc-message', { channel: 'preview-open-external', args: ['file:///C:/secret'] });
-  assert.equal(ui.external.length, 0);
-  ui.externalResult(false);
+test('private preview IPC is unused; explicit browser action uses the SDK and reports failure', async () => {
+  const ui = await boot(); const guest = ui.container.querySelector('iframe');
   await ui.event(guest, 'ipc-message', { channel: 'preview-open-external', args: ['https://example.com/'] });
-  assert.deepEqual(ui.external, ['https://example.com/']);
+  assert.equal(ui.external.length, 0);
+  await ui.click('Control room');
+  ui.externalResult(false);
+  await ui.click('Open in browser');
+  assert.deepEqual(ui.external, ['http://localhost:4173/']);
   assert.match(ui.container.textContent, /Could not open the browser/);
-  await ui.status({ running: false, installed: true });
-  await ui.event(guest, 'ipc-message', { channel: 'preview-open-external', args: ['https://example.org/'] });
-  assert.equal(ui.external.length, 1);
 });
-test('Provider Settings uses the grounded native affordance and degrades honestly when unsupported', async () => {
-  const ui = await boot(); const guest = ui.container.querySelector('webview');
-  await readyGuest(ui, guest); await ui.click('Control room');
-  await ui.click('Provider Settings'); assert.match(ui.container.textContent, /Open Provider Settings inside the globe/);
-  let clicked = 0;
-  guest.getURL = () => 'http://localhost:4173/';
-  const panel = { hidden: true };
-  guest.executeJavaScript = async code => vm.runInNewContext(code, { document: { querySelector: selector => selector === '#key-setup-chip' ? { click: () => { clicked++; panel.hidden = false; } } : selector === '#key-setup[data-initialized="true"]' ? panel : null } });
-  await ui.click('Provider Settings'); assert.equal(clicked, 1);
+test('Provider Settings directs the user to GEV without scripting or remounting the opaque frame', async () => {
+  const ui = await boot(); const guest = ui.container.querySelector('iframe');
+  guest.executeJavaScript = () => { assert.fail('must never script guest'); };
+  guest.getURL = () => { assert.fail('must never inspect guest'); };
+  await ui.click('Control room');
+  await ui.click('Provider Settings');
+  assert.match(ui.container.querySelector('[role="status"]').textContent, /Engine running/);
+  assert.match(ui.container.textContent, /Open Provider Settings inside the globe/);
   assert.equal(ui.container.querySelector('[role="dialog"]'), null);
+  assert.equal(ui.container.querySelector('iframe'), guest);
+  assert.equal(ui.calls.filter(([route]) => route !== '/status').length, 0);
+});
+test('key bridge remains explicit opt-in and resets when the Control room closes', async () => {
+  const ui = await boot(); await ui.click('Control room');
+  assert.equal(ui.button('Bridge compatible keys').disabled, true);
+  assert.equal(ui.calls.some(([route]) => route === '/keys/hermes'), false);
+  const checkbox = ui.container.querySelector('input[type="checkbox"]');
+  await React.act(async () => checkbox.click()); await ui.settle();
+  await ui.click('Bridge compatible keys');
+  assert.equal(ui.calls.filter(([route, options]) => route === '/keys/hermes' && options.method === 'POST').length, 1);
+  await ui.click('Close Control room'); await ui.click('Control room');
+  assert.equal(ui.button('Bridge compatible keys').disabled, true);
 });
 test('action detail errors are never promoted to success and drawer re-entry requires fresh update confirmation', async () => {
   const ui = await boot(); await ui.click('Control room');
@@ -187,7 +201,7 @@ test('rejects incomplete status and non-web guest URLs', async () => {
   const ui = await boot({ running: false });
   assert.match(ui.container.textContent, /Plugin backend not loaded/);
   await ui.status({ running: true, installed: true, url: 'javascript:alert(1)' });
-  assert.equal(ui.container.querySelector('webview'), null);
+  assert.equal(ui.container.querySelector('iframe'), null);
   assert.match(ui.container.textContent, /invalid globe URL/);
 });
 
@@ -207,36 +221,4 @@ test('registers a truthful glanceable engine status contribution', async () => {
   } finally { await React.act(async () => root.unmount()); container.remove(); }
 });
 
-test('background fetch loading does not demote a ready globe', async () => {
-  const ui = await boot(); const guest = ui.container.querySelector('webview');
-  await readyGuest(ui, guest);
-  await ui.event(guest, 'did-start-loading');
-  assert.match(ui.container.querySelector('header').textContent, /Globe ready/);
-});
-
-test('DOM readiness without a globe does not cancel the load watchdog', async () => {
-  const timers = new Map(); let next = 0;
-  const ui = await boot(undefined, {
-    setTimeout: (fn, delay) => { const id = ++next; timers.set(id, { fn, delay }); return id; },
-    clearTimeout: id => timers.delete(id)
-  });
-  const guest = ui.container.querySelector('webview');
-  guest.getURL = () => 'http://localhost:4173/';
-  guest.executeJavaScript = async code => vm.runInNewContext(code, { document: { readyState: 'complete', querySelector: () => null } });
-  await ui.event(guest, 'did-start-navigation', { isMainFrame: true });
-  await ui.event(guest, 'dom-ready');
-  assert.match(ui.container.querySelector('header').textContent, /Loading globe/);
-  const watchdog = [...timers.values()].find(timer => timer.delay === 30000);
-  assert.ok(watchdog, 'application readiness timeout remains armed');
-  await React.act(async () => watchdog.fn());
-  assert.match(ui.container.textContent, /taking longer than expected/);
-});
-
-test('missed dom-ready is recovered from actual guest document readiness', async () => {
-  const ui = await boot(); const guest = ui.container.querySelector('webview');
-  guest.getURL = () => 'http://localhost:4173/';
-  guest.executeJavaScript = async () => true;
-  await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 1000)); });
-  assert.match(ui.container.querySelector('header').textContent, /Globe ready/);
-});
 test('large surfaces use neutral surface tokens, not primary button fills',()=>{const code=fs.readFileSync(pluginPath,'utf8');for(const selector of ['gev-shell','gev-header','gev-drawer']){const rule=code.slice(code.indexOf('.'+selector+'{')).split('}')[0];assert.doesNotMatch(rule,/--ui-bg-primary/);assert.match(rule,/--ui-bg-(chrome|editor|elevated)/)}})

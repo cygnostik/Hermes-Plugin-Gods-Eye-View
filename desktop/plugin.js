@@ -1,4 +1,4 @@
-import { host, useValue, useQuery, useQueryClient, ROUTES_AREA, SIDEBAR_NAV_AREA, PALETTE_AREA, STATUSBAR_AREAS } from '@hermes/plugin-sdk'
+import { SandboxedFrame, host, useValue, useQuery, useQueryClient, ROUTES_AREA, SIDEBAR_NAV_AREA, PALETTE_AREA, STATUSBAR_AREAS } from '@hermes/plugin-sdk'
 import { useEffect, useRef, useState } from 'react'
 import { jsx, jsxs } from 'react/jsx-runtime'
 
@@ -80,54 +80,13 @@ const CSS = `
 @media(prefers-reduced-motion:reduce){.gev-shell *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media(max-width:560px){.gev-header{gap:7px;padding:0 8px}.gev-title{max-width:110px;overflow:hidden;text-overflow:ellipsis}.gev-health{font-size:10px}}
 `
-function Guest({ url, guestRef, onState, ctx, onMessage }) {
-  useEffect(() => {
-    const guest = guestRef.current
-    if (!guest) return
-    let timer, probeTimer, active = true, generation = 0
-    const cancel = () => { clearTimeout(timer); clearTimeout(probeTimer) }
-    const ready = () => { generation++; cancel(); onState({ phase: 'ready', text: 'Globe ready' }) }
-    const probe = async epoch => {
-      if (!active || epoch !== generation) return
-      try {
-        if (typeof guest.executeJavaScript === 'function' && typeof guest.getURL === 'function' && new URL(guest.getURL()).origin === new URL(url).origin) {
-          const loaded = await guest.executeJavaScript(`document.readyState !== 'loading' && Boolean(document.querySelector('canvas'))`)
-          if (active && epoch === generation && loaded === true) { ready(); return }
-        }
-      } catch { /* Guest may not be attached yet. Retry only within this load. */ }
-      if (active && epoch === generation) probeTimer = setTimeout(() => probe(epoch), 500)
-    }
-    const waiting = () => {
-      cancel(); const epoch = ++generation
-      onState({ phase: 'loading', text: 'Loading globe' })
-      timer = setTimeout(() => { generation++; clearTimeout(probeTimer); onState({ phase: 'error', text: 'The globe is taking longer than expected.' }) }, 30000)
-      probeTimer = setTimeout(() => probe(epoch), 500)
-    }
-    const failed = event => { if (event.isMainFrame === false || event.errorCode === -3) return; generation++; cancel(); onState({ phase: 'error', text: 'Globe could not load. ' + (event.errorDescription || '') }) }
-    const gone = () => { generation++; cancel(); onState({ phase: 'error', text: 'Globe renderer stopped. Reload to recover.' }) }
-    const external = async event => {
-      if (event.channel !== 'preview-open-external') return
-      const target = webURL(event.args?.[0])
-      if (!target) return
-      try { if (await ctx.os.openExternal(target) !== true && active) onMessage({ kind: 'error', text: 'Could not open the browser. This Desktop build may not support external links.' }) }
-      catch (e) { if (active) onMessage({ kind: 'error', text: errorText(e) }) }
-    }
-    const listeners = { 'did-start-navigation': event => { if (event.isMainFrame !== false && !event.isInPlace) waiting() }, 'dom-ready': () => { clearTimeout(probeTimer); void probe(generation) }, 'did-fail-load': failed, 'render-process-gone': gone, 'ipc-message': external }
-    Object.entries(listeners).forEach(([name, fn]) => guest.addEventListener(name, fn))
-    waiting()
-    return () => { active = false; generation++; cancel(); Object.entries(listeners).forEach(([name, fn]) => guest.removeEventListener(name, fn)) }
-  }, [url, guestRef, onState, ctx, onMessage])
-  return jsx('webview', { ref: guestRef, src: url, partition: 'persist:hermes-preview', webpreferences: 'contextIsolation=yes,nodeIntegration=no,sandbox=yes', title: 'God’s Eye View — native globe', style: { display: 'flex', flex: '1 1 auto', width: '100%', height: '100%', minWidth: 0, minHeight: 0, border: 'none' } })
-}
 function Button({ children, ...props }) { return jsx('button', { type: 'button', className: 'gev-button', ...props, children }) }
 function Workspace({ ctx, query }) {
   const status = query.data
   const client = useQueryClient()
-  const guestRef = useRef(null)
   const deckRef = useRef(null)
   const alive = useRef(true)
   const lock = useRef(false)
-  const [view, setView] = useState({ phase: 'loading', text: 'Loading globe' })
   const [guestVersion, setGuestVersion] = useState(0)
   const [drawer, setDrawer] = useState(false)
   const [focus, setFocus] = useState(false)
@@ -162,27 +121,22 @@ function Workspace({ ctx, query }) {
     try { if (await ctx.os.openExternal(target) !== true && current()) setMessage({ kind: 'error', text: 'Could not open the browser. Use a Desktop build with native external-link support.' }) }
     catch (e) { if (current()) setMessage({ kind: 'error', text: errorText(e) }) }
   }
-  const providers = async () => {
-    try {
-      const guest = guestRef.current
-      if (view.phase !== 'ready' || typeof guest?.executeJavaScript !== 'function' || typeof guest?.getURL !== 'function' || new URL(guest.getURL()).origin !== new URL(status.url).origin) throw new Error('unsupported')
-      const opened = await guest.executeJavaScript(`(() => { const panel = document.querySelector('#key-setup[data-initialized="true"]'); const chip = document.querySelector('#key-setup-chip'); if (!panel || !chip) return false; if (panel.hidden) chip.click(); return panel.hidden === false; })()`)
-      if (opened !== true) throw new Error('unsupported')
-      if (current()) { setMessage(null); close() }
-    } catch { if (current()) setMessage({ kind: 'error', text: 'Open Provider Settings inside the globe using its native settings chip. This build does not expose the supported shortcut.' }) }
+  const providers = () => {
+    if (!current()) return
+    close()
+    setMessage({ kind: 'info', text: 'Open Provider Settings inside the globe using GEV’s own settings chip. If the globe is unavailable, use Open in browser in the Control room.' })
   }
-  const reload = () => { setView({ phase: 'loading', text: 'Loading globe' }); setGuestVersion(value => value + 1) }
+  const reload = () => setGuestVersion(value => value + 1)
   const engine = query.error ? 'Connection interrupted' : query.isPending ? 'Connecting to backend' : running ? 'Engine running' : setupRequired ? 'Setup required' : 'Engine offline'
   const notice = message && jsxs('div', { className: 'gev-notice', role: message.kind === 'error' ? 'alert' : 'status', children: [jsx('span', { children: message.text }), jsx(Button, { onClick: () => setMessage(null), 'aria-label': 'Dismiss message', children: 'Dismiss' })] })
   return jsxs('section', { className: 'gev-shell', 'aria-label': 'God’s Eye View workspace', children: [
     jsx('style', { children: CSS }),
-    !focus && jsxs('header', { className: 'gev-header', style: { height: '40px' }, children: [jsx(Emblem, {}), jsx('h1', { className: 'gev-title', children: 'God’s Eye View' }), jsx('span', { className: 'gev-health', role: 'status', title: engine + (running ? ' · ' + view.text : ''), children: engine + (running ? ' · ' + view.text : '') }), jsx(Button, { onClick: () => { close(); setFocus(true) }, children: 'Focus' }), jsx(Button, { ref: deckRef, onClick: () => drawer ? close() : setDrawer(true), 'aria-expanded': drawer, children: 'Control room' })] }),
+    !focus && jsxs('header', { className: 'gev-header', style: { height: '40px' }, children: [jsx(Emblem, {}), jsx('h1', { className: 'gev-title', children: 'God’s Eye View' }), jsx('span', { className: 'gev-health', role: 'status', title: engine, children: engine }), jsx(Button, { onClick: () => { close(); setFocus(true) }, children: 'Focus' }), jsx(Button, { ref: deckRef, onClick: () => drawer ? close() : setDrawer(true), 'aria-expanded': drawer, children: 'Control room' })] }),
     focus && jsx(Button, { className: 'gev-button gev-restore', onClick: () => setFocus(false), children: 'Show flight deck' }),
     query.error && running && jsxs('div', { className: 'gev-notice', role: 'alert', children: [jsx('span', { children: 'Connection interrupted. Last globe retained; engine status is unverified. ' + errorText(query.error) }), jsx(Button, { onClick: () => query.refetch(), children: 'Retry connection' })] }),
-    view.phase === 'error' && running && jsxs('div', { className: 'gev-notice', role: 'alert', children: [jsx('span', { children: view.text }), jsx(Button, { onClick: reload, children: 'Reload globe' })] }),
     notice,
     jsxs('div', { className: 'gev-body', children: [
-      jsx('main', { className: 'gev-stage', children: running ? jsx(Guest, { url: status.url, guestRef, onState: setView, ctx, onMessage: setMessage }, guestVersion) : jsxs('div', { className: 'gev-empty', children: [jsx(Emblem, { blueprint: true }), jsx('p', { className: 'gev-kicker', children: 'Geospatial workspace' }), jsx('h2', { children: query.error ? 'Connection unavailable.' : query.isPending ? 'Establishing perspective.' : setupRequired ? 'Set up your perspective.' : 'A wider perspective.' }), jsx('p', { className: 'gev-copy', role: query.error ? 'alert' : 'status', children: query.error ? errorText(query.error) : query.isPending ? 'Checking the plugin backend. The engine state is not yet known.' : setupRequired ? SETUP_GUIDANCE : 'The engine is offline. Start it to explore the native God’s Eye View globe.' }), query.error ? jsx(Button, { onClick: () => query.refetch(), children: 'Retry connection' }) : !query.isPending && jsx(Button, { onClick: () => act('start'), disabled: disabled || setupRequired, children: busy === 'start' ? 'Starting engine…' : 'Start engine' }), jsx('p', { className: 'gev-caption', children: 'Decorative orbital blueprint · not live data' })] }) }),
+      jsx('main', { className: 'gev-stage', children: running ? jsx(SandboxedFrame, { src: status.url, title: "God's Eye View", style: { display: 'flex', flex: '1 1 auto', width: '100%', height: '100%', minWidth: 0, minHeight: 0, border: 'none' } }, guestVersion) : jsxs('div', { className: 'gev-empty', children: [jsx(Emblem, { blueprint: true }), jsx('p', { className: 'gev-kicker', children: 'Geospatial workspace' }), jsx('h2', { children: query.error ? 'Connection unavailable.' : query.isPending ? 'Establishing perspective.' : setupRequired ? 'Set up your perspective.' : 'A wider perspective.' }), jsx('p', { className: 'gev-copy', role: query.error ? 'alert' : 'status', children: query.error ? errorText(query.error) : query.isPending ? 'Checking the plugin backend. The engine state is not yet known.' : setupRequired ? SETUP_GUIDANCE : 'The engine is offline. Start it to explore the native God’s Eye View globe.' }), query.error ? jsx(Button, { onClick: () => query.refetch(), children: 'Retry connection' }) : !query.isPending && jsx(Button, { onClick: () => act('start'), disabled: disabled || setupRequired, children: busy === 'start' ? 'Starting engine…' : 'Start engine' }), jsx('p', { className: 'gev-caption', children: 'Decorative orbital blueprint · not live data' })] }) }),
       drawer && jsxs('aside', { className: 'gev-drawer', role: 'dialog', 'aria-label': 'Control room', 'aria-modal': false, onKeyDown: e => { if (e.key === 'Escape') { e.stopPropagation(); close() } }, children: [
         jsxs('div', { className: 'gev-drawer-title', children: [jsxs('div', { children: [jsx('p', { className: 'gev-kicker', children: 'Workspace systems' }), jsx('h2', { children: 'Control room' })] }), jsx(Button, { autoFocus: true, onClick: close, 'aria-label': 'Close Control room', children: 'Close' })] }),
         jsx('p', { className: 'gev-copy', children: 'The globe stays native. Manage the engine here; explore layers, places and scenes inside God’s Eye View.' }),

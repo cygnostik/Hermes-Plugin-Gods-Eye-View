@@ -2,6 +2,12 @@
 
 The first release supports Windows and macOS around the separately installed official GEV application. It does not certify or modify every third-party app feature.
 
+## v0.1.2 dependency admission checks
+
+Hermes' universal resolver also evaluates its deferred Android environment. The old unconditional `psutil>=5.9,<8` declaration conflicts there with Hermes' Android-only source pin (which declares 8.0.0), even though Windows uses the compatible index pin 7.2.2. v0.1.2 excludes Android from this Desktop plugin requirement, without changing core, widening the desktop version bound, or changing the SDK sandbox.
+
+On Windows, a minimal universal `uv lock` probe using the exact core psutil declarations fails before this marker change and resolves after it. 34 backend tests (including two marker regressions and the real Node/HTTP lifecycle fixture), 14 frontend tests, JavaScript syntax, diff checks and plugin admission validation pass. Marker tests are dependency-data checks, not Android execution. Live frame acceptance remains separate and pending; installation/enable readback is not evidence of a rendered globe.
+
 ## v0.1.1 SDK migration checks
 
 Local checks on macOS: 14 frontend tests and 32 backend tests pass (including the native Node/HTTP lifecycle fixture); JavaScript syntax and diff checks pass. Plugin admission validation reports all checks green, scanner `safe`, and no warnings; Plugin Doctor reports no findings. The current upstream Desktop surface lint also passes. Five migration regressions fail against the original v0.1.0 bundle.

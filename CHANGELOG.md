@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 — Platform-scoped dependency admission
+
+- Restrict the plugin's bounded index `psutil` requirement to non-Android targets, leaving Hermes' Android-only source pin untouched during universal resolution. Windows/macOS still require `psutil>=5.9,<8`; no core pin or SDK sandbox changes.
+- Add marker regressions for the deferred Android target and supported desktop platforms. The original universal resolver conflict is reproduced independently and passes with this marker.
+- Desktop frame acceptance is separate from package admission; see `docs/verification.md` for current evidence and limits.
+
 ## 0.1.1 — SDK frame migration
 
 - Require Hermes >=0.21.5 and embed the separate GEV app through SDK `SandboxedFrame` using its default opaque-origin sandbox.

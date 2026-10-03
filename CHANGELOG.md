@@ -1,3 +1,7 @@
+# v0.1.3-legacy.1 — LEGACY COMPATIBILITY
+
+Separate prerelease, not SDK/catalog approved. Restore desktop/plugin.js and tests/frontend/plugin.test.cjs byte-for-byte from v0.1.0; preserve v0.1.2 backend and Android dependency marker. No upstream headers, SDK sandbox, core or provider values changed. Historical visual acceptance is not a fresh acceptance of this prerelease.
+
 # Changelog
 
 ## 0.1.2 — Platform-scoped dependency admission

@@ -1,8 +1,8 @@
 manifest_version: 1
 name: gods-eye-view
-version: "0.1.2"
+version: "0.1.3-legacy.1"
 requires_hermes: ">=0.21.5"
-description: Community God's Eye View integration for Hermes Desktop — native globe, Focus mode, and explicit local engine controls.
+description: LEGACY COMPATIBILITY (not SDK/catalog approved). Community God's Eye View integration for Hermes Desktop — native globe, Focus mode, and explicit local engine controls.
 author: "Chris M. / ProDyn.ai"
 license: MIT
 homepage: https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View

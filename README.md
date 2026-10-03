@@ -6,7 +6,7 @@
 
 **A wider perspective. One sidebar away.**
 
-Explore [Bilawal Sidhu’s God’s Eye View](https://github.com/bilawalsidhu/gods-eye-view) without leaving Hermes Desktop. The native globe, scenes, layers and provider controls stay intact. A compact flight deck puts the local engine within reach.
+A community wrapper for [Bilawal Sidhu’s God’s Eye View](https://github.com/bilawalsidhu/gods-eye-view), with explicit local engine controls. Embedded availability depends on the release line and upstream framing policy; read the status below before installing.
 
 [Install](#install) · [Official GEV](https://github.com/bilawalsidhu/gods-eye-view) · [Verification](docs/verification.md) · [Report an issue](https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View/issues)
 
@@ -14,11 +14,24 @@ Explore [Bilawal Sidhu’s God’s Eye View](https://github.com/bilawalsidhu/god
 
 *v0.1.0 Windows capture (before the SDK frame migration), cropped to the plugin; imagery attribution retained. Photorealistic imagery depends on your GEV providers. Classification and recording labels are part of GEV’s visual styling, not actual classification or recording status.*
 
+## Integration status — October 2, 2026 (Pacific time)
+
+The catalog SDK line remains **v0.1.2**, pinned to `8eec0b3ede21b4971e840cb1cf35457087a1a6cb`. Catalog admission is not live rendering acceptance. Current Windows acceptance recovered the backend and controls, but the local GEV engine rejects the SDK frame with `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`. The native console confirms the framing refusal. This is a regression after the SDK-required migration, not evidence that the original Electron guest never worked.
+
+**Immediate supported fallback:** Start engine, then **Open in browser**. Browser globe rendering and camera interaction were observed in the October 2 acceptance run; they do not fulfill embedded rendering. After Desktop quits, an explicit Start may be needed. Provider-save recovery in the SDK frame remains untested because framing is rejected first.
+
+### LEGACY COMPATIBILITY — separate, not SDK/catalog approved
+
+- [v0.1.0 historical release](https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View/releases/tag/v0.1.0), source `c871d9b1e17a962acb3bd7d2a8d851fe313f8daf`, was already public. Historical embedded live verification dates are September 20 and September 25, 2026; the [September 25 exact-pin Windows results](https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View/issues/1) include visible camera interaction and scoped provider-save recovery. These are not fresh tests of today's Hermes/upstream combination.
+- [v0.1.3-legacy.1 compatibility prerelease](https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View/releases/tag/v0.1.3-legacy.1) restores only that renderer and its matching frontend tests onto the v0.1.2 backend/dependency baseline. Unlike immutable v0.1.0, it retains `psutil>=5.9,<8; sys_platform != 'android'`, avoiding the known universal Android resolution conflict. It does not add Android support.
+- The legacy renderer uses raw Electron webview, Hermes' shared `persist:hermes-preview` partition, private preload IPC and guest scripting. This coupling is outside the supported SDK and is **not catalog approved**. Host changes may break it. Current validation/installation can reject it; **stop on refusal**, do not bypass scanners, copy it into discovery, weaken sandbox/headers or treat historical validation as current approval.
+- The compatibility release is a separate branch/prerelease, never a catalog re-pin or replacement for main. See its release notes for the exact immutable source/install reference, actual regression results and admission result. No current native rendering acceptance or maintainer exception is claimed.
+
 ## Your view. Your controls.
 
 | In the workspace | What you can do |
 | --- | --- |
-| **Native globe** | Explore GEV’s places, scenes, layers and visual styles in its own interface. |
+| **Native globe** | Historical legacy embedding; currently blocked in the SDK line. Use Open in browser. |
 | **Flight deck** | See backend engine status. Enter Focus mode to give the view more room. |
 | **Control room** | Start or stop the engine, recreate the view with Reload globe, and find GEV’s own Provider Settings chip. |
 | **Engine maintenance** | Check for upstream GEV updates, then explicitly apply them. Local source changes block the update before the engine is stopped. |
@@ -38,10 +51,10 @@ You’ll need **Hermes Desktop 0.21.5 or newer**, **Windows or macOS**, **Git**,
 Install directly from this repository:
 
 ```sh
-hermes plugins install https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View --enable
+hermes plugins install https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View --ref 8eec0b3ede21b4971e840cb1cf35457087a1a6cb --enable
 ```
 
-Catalog approval is pending. The direct-repository command works independently of catalog approval.
+This installs the accepted SDK release, not legacy compatibility. Catalog PR #122028 merged October 2, 2026 at 23:46 UTC. The embedded globe limitation above still applies; approval does not certify live rendering.
 
 ### 2. Connect your GEV checkout
 
@@ -65,7 +78,7 @@ Restart Hermes Desktop after your active runs finish. Open **Capabilities → Pl
 
 Select **God’s Eye View** in the sidebar, then **Start engine**. The flight deck reports **Engine running** from the backend; check the visible globe separately. Engine status does not verify rendering or provider access.
 
-Start with GEV’s keyless imagery and terrain. For optional providers, including photorealistic 3D, select **Control room → Provider Settings** for directions to GEV’s own settings chip inside the globe. They have their own terms, quotas and billing. Nothing starts automatically at login. Windows foreground acceptance passed on v0.1.0 ([results](https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View/issues/1)); the v0.1.1 SDK frame has not yet had live Desktop acceptance; **Reload globe** recreates the embedded view.
+Start with GEV’s keyless imagery and terrain. For optional providers, including photorealistic 3D, select **Control room → Provider Settings** for directions to GEV’s own settings chip inside the globe. They have their own terms, quotas and billing. Nothing starts automatically at login. Windows foreground acceptance passed on v0.1.0 ([results](https://github.com/cygnostik/Hermes-Plugin-Gods-Eye-View/issues/1)); the v0.1.1/v0.1.2 SDK frame is blocked by the observed upstream anti-framing headers; **Reload globe** recreates the embedded view.
 
 ## Everyday operation
 
@@ -80,7 +93,7 @@ Provider keys normally stay in GEV’s native configuration. An optional compati
 
 The engine runs on the same machine as Hermes Desktop. Imagery and feeds may use external services. This wrapper does not certify their freshness or provider authentication. See [security and data boundaries](SECURITY.md).
 
-**Verification:** v0.1.0 had Windows/macOS automated checks and live Desktop acceptance. v0.1.1 replaces the embedding with the SDK’s opaque-origin frame; see [verification and known limitations](docs/verification.md) for its scoped checks and pending live acceptance.
+**Verification:** v0.1.0 had Windows/macOS automated checks and live Desktop acceptance. v0.1.1 replaces the embedding with the SDK’s opaque-origin frame; see [verification and known limitations](docs/verification.md) for scoped checks and the current framing blocker.
 
 ## Development
 

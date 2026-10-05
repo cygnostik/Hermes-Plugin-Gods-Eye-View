@@ -64,4 +64,17 @@ class PublicBackendTests(FixtureCase):
         self.assertNotIn('OPENAI_API_KEY', env)
         self.assertNotIn('UNRELATED_SECRET', env)
 
+    def test_child_environment_opts_in_to_upstream_embed_framing(self):
+        # GEV >= 0.2.1 keeps frame-ancestors 'none' unless this variable opts
+        # in; the SDK frame's opaque origin requires '*' (any origin match
+        # rule can never match an opaque origin).
+        env = gev._node_env()
+        self.assertEqual(env.get('GEV_EMBED_FRAME_ANCESTORS'), '*')
+
+    def test_status_reports_embed_url(self):
+        # The SandboxedFrame must consume the ?embed=1 document; the plain
+        # root URL remains the full app for external-browser handoff.
+        self.assertEqual(gev._embed_url(), gev._url() + '?embed=1')
+        self.assertNotIn('embed', gev._url())
+
 if __name__ == '__main__': unittest.main(verbosity=2)

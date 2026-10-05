@@ -93,7 +93,7 @@ Provider keys normally stay in GEV’s native configuration. An optional compati
 
 The engine runs on the same machine as Hermes Desktop. Imagery and feeds may use external services. This wrapper does not certify their freshness or provider authentication. See [security and data boundaries](SECURITY.md).
 
-**Verification:** v0.1.0 had Windows/macOS automated checks and live Desktop acceptance. v0.1.1 replaces the embedding with the SDK’s opaque-origin frame; see [verification and known limitations](docs/verification.md) for scoped checks and the current framing blocker.
+**Verification:** v0.1.0 had Windows/macOS automated checks and live Desktop acceptance. v0.1.1 moved to the SDK’s opaque-origin frame; v0.1.3 adopts upstream GEV ≥ 0.2.1’s supported embed mode and resolves that framing blocker — see [verification and known limitations](docs/verification.md).
 
 ## Development
 
@@ -110,6 +110,6 @@ hermes plugins doctor . --ci
 
 ## Built on good work
 
-**God’s Eye View:** [Bilawal Sidhu](https://github.com/bilawalsidhu/gods-eye-view). **Hermes Agent:** [Nous Research](https://github.com/NousResearch/hermes-agent). **Community integration:** [cygnostik](https://github.com/cygnostik) / [ProDyn](https://prodyn.ai).
+**God’s Eye View:** [Bilawal Sidhu](https://github.com/bilawalsidhu/gods-eye-view). **Hermes Agent:** [Nous Research](https://github.com/NousResearch/hermes-agent). **Community integration:** [cygnostik](https://github.com/cygnostik) / [ProDyn](https://prodyn.ai) — AI projects from [Promethean Dynamic](https://promethean-dynamic.com), alongside [TrustEdge.gt](https://trustedge.gt).
 
 This is an independent community integration, not an official GEV or Nous Research release. The wrapper is [MIT-licensed](LICENSE); upstream software, datasets and imagery retain their own licenses and terms.

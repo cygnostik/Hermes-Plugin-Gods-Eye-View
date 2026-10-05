@@ -110,6 +110,6 @@ hermes plugins doctor . --ci
 
 ## Built on good work
 
-**God’s Eye View:** [Bilawal Sidhu](https://github.com/bilawalsidhu/gods-eye-view). **Hermes Agent:** [Nous Research](https://github.com/NousResearch/hermes-agent). **Community integration:** [cygnostik](https://github.com/cygnostik) / [ProDyn](https://prodyn.ai) — AI projects from [Promethean Dynamic](https://promethean-dynamic.com), alongside [TrustEdge.gt](https://trustedge.gt).
+**God’s Eye View:** [Bilawal Sidhu](https://github.com/bilawalsidhu/gods-eye-view). **Hermes Agent:** [Nous Research](https://github.com/NousResearch/hermes-agent). **Community integration:** [cygnostik](https://github.com/cygnostik) / [ProDyn.ai](https://prodyn.ai), AI projects from [Promethean Dynamic](https://promethean-dynamic.com), alongside [TrustEdge.gt](https://trustedge.gt).
 
 This is an independent community integration, not an official GEV or Nous Research release. The wrapper is [MIT-licensed](LICENSE); upstream software, datasets and imagery retain their own licenses and terms.

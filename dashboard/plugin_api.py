@@ -80,11 +80,31 @@ def _require_supported_platform():
 
 
 def _url() -> str:
-    return f"http://localhost:{_config()['port']}/"
+    # Embed mode is the upstream-supported framing surface (GEV >= 0.2.1):
+    # ?embed=1 serves the globe-only document whose frame-ancestors policy is
+    # relaxed only when GEV_EMBED_FRAME_ANCESTORS opts in (set in the engine's
+    # child environment below). The plugin's own /status URL is the full app
+    # used for external-browser handoff; the SandboxedFrame consumes the embed
+    # document derived below.
+    port = _config()["port"]
+    return f"http://localhost:{port}/"
+
+
+def _embed_url() -> str:
+    return _url() + "?embed=1"
 
 
 def _node_env() -> dict[str, str]:
-    return settings.child_env(Path(_config()["node"]))
+    env = settings.child_env(Path(_config()["node"]))
+    # Upstream GEV >= 0.2.1 keeps frame-ancestors 'none' on every document
+    # unless GEV_EMBED_FRAME_ANCESTORS names who may frame its ?embed=1 globe
+    # document. The SDK SandboxedFrame has an opaque origin, which CSP
+    # frame-ancestors <origin> can never match, so the embed document must be
+    # framable by any page; every other document (including Provider Settings)
+    # keeps DENY regardless. '*' only drops the framing directives here; the
+    # rest of the upstream CSP is preserved.
+    env["GEV_EMBED_FRAME_ANCESTORS"] = "*"
+    return env
 
 
 def _run(cmd: list[str], cwd: Path, timeout: int = 120) -> tuple[int, str]:
@@ -162,7 +182,7 @@ def status() -> dict:
         proc = state["proc"]
         return {"configured": True, "configuration_error": None,
                 "installed": (root / "package.json").is_file(), "running": keys is not None,
-                "url": _url(), "port": c["port"], "version": version, **state["updates"],
+                "url": _url(), "embed_url": _embed_url(), "port": c["port"], "version": version, **state["updates"],
                 "pid": proc.pid if proc is not None and proc.poll() is None else None,
                 # Historical frontend field name; Node 26 is supported too.
                 "node24_ok": Path(c["node"]).is_file(), "node_version": c["node_version"],

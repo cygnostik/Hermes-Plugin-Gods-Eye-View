@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 — Upstream embed mode
+
+- Adopt upstream GEV >= 0.2.1 embed mode: the SandboxedFrame now loads the globe-only `?embed=1` document instead of the full app. `/status` reports it as `embed_url`; `url` remains the full app for the external-browser handoff.
+- The engine child environment sets `GEV_EMBED_FRAME_ANCESTORS=*` so upstream's opt-in framing allows the SDK frame's opaque origin. Only the `?embed=1` document becomes framable; every other document (including Provider Settings) keeps `X-Frame-Options: DENY` / `frame-ancestors 'none'`, and the rest of the upstream CSP is untouched.
+- Update-path expectation: the engine update flow still refuses dirty checkouts and fast-forwards upstream; the local checkout must be at GEV >= 0.2.1 for embed mode (older engines keep full-app behavior with framing refused).
+
 ## 0.1.2 — Platform-scoped dependency admission
 
 - Restrict the plugin's bounded index `psutil` requirement to non-Android targets, leaving Hermes' Android-only source pin untouched during universal resolution. Windows/macOS still require `psutil>=5.9,<8`; no core pin or SDK sandbox changes.
